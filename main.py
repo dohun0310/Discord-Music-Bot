@@ -123,4 +123,12 @@ async def 스킵(interaction: discord.Interaction):
     else:
         await send_temp(interaction, make_embed("🚫 재생 중인 곡이 없습니다."))
 
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: Exception):
+    # 오류 메시지가 사라지지 않도록 일반 메시지로 전송합니다.
+    if interaction.response.is_done():
+        await interaction.followup.send(embed=make_embed(f"❗ 오류가 발생했습니다 오류 내용: {error}"))
+    else:
+        await interaction.response.send_message(embed=make_embed(f"오류 내용: {error}"))
+        
 bot.run(BOT_TOKEN)
