@@ -49,6 +49,10 @@ async def 재생(interaction: discord.Interaction, query: str):
         return
     loop = bot.loop
     data = await YTDLSource.create_source(query, loop=loop)
+
+    if not data or "url" not in data or "title" not in data:
+        await send_temp(interaction, make_embed("❗ 검색 결과가 없습니다."))
+        return
     source = discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS)
     source.title = data['title']
     source.webpage_url = data['webpage_url']
