@@ -39,6 +39,10 @@ class MusicPlayer:
             msg = f"🎶 현재 재생: **{self.current.title}**\n[바로가기]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
             await self.text_channel.send(embed=make_embed(msg), delete_after=10)
             await self.next.wait()
+            
+            if self.queue.empty():
+                await self.text_channel.send(embed=make_embed("🎵 노래가 끝났습니다. 5분 후에 연결을 종료합니다."))
+            
             self.current = None
 
     async def destroy(self):
