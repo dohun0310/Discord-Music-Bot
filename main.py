@@ -57,7 +57,7 @@ async def 재생(interaction: discord.Interaction, query: str):
     source.title = data['title']
     source.webpage_url = data['webpage_url']
     await player.queue.put(source)
-    msg = f"✅ 대기열에 추가됨: **{data['title']}**\n[바로가기]({data['webpage_url']})"
+    msg = f"✅ 대기열에 추가됨: [**{data['title']}**]({data['webpage_url']})"
     await send_temp(interaction, make_embed(msg))
 
 @bot.tree.command(name="대기열", description="현재 대기열을 확인합니다.")
@@ -71,13 +71,13 @@ async def 대기열(interaction: discord.Interaction):
         return
     msg = ""
     if player.current:
-        msg += f"🎵 현재 재생: **{player.current.title}**\n"
+        msg += f"🎵 현재 재생: [**{player.current.title}**]({getattr(player.current, 'webpage_url', 'https://www.youtube.com/')})\n"
     if player.queue.empty():
         msg += "📭 대기열이 비어있습니다."
     else:
         queue_list = list(player.queue._queue)
         for i, song in enumerate(queue_list, 1):
-            msg += f"{i}. **{song.title}**\n"
+            msg += f"{i}. [**{song.title}**]({getattr(song, 'webpage_url', 'https://www.youtube.com/')})\n"
     await send_temp(interaction, make_embed(msg))
 
 @bot.tree.command(name="삭제", description="대기열에서 지정한 순번의 곡을 제거합니다.")
