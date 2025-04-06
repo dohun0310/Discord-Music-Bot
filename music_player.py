@@ -28,7 +28,8 @@ class MusicPlayer:
                 await self.text_channel.send(embed=make_embed("🎵 대기열이 비어 연결을 종료합니다."))
                 await self.destroy()
                 return
-            self.current = None
+            
+            self.current = await self.queue.get()
 
             self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
             msg = f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
