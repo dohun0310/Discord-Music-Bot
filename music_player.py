@@ -23,7 +23,7 @@ class MusicPlayer:
                 return
 
             self.next.clear()
-            
+            await asyncio.sleep(100)
             if self.queue.empty():
                 await self.text_channel.send(embed=make_embed("🎵 대기열이 비어 연결을 종료합니다."))
                 await self.destroy()
