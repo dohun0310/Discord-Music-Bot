@@ -53,9 +53,6 @@ async def 재생(interaction: discord.Interaction, query: str):
         await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
         return
     await interaction.response.defer(ephemeral=False)
-    player = await get_player(interaction)
-    if player is None:
-        return
     loop = bot.loop
     try:
         data = await YTDLSource.create_source(query, loop=loop)
@@ -65,9 +62,21 @@ async def 재생(interaction: discord.Interaction, query: str):
     if not data or "url" not in data or "title" not in data:
         await send_temp(interaction, make_embed("❗ 검색 결과가 없습니다."))
         return
+
     source = discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS)
     source.title = data['title']
     source.webpage_url = data['webpage_url']
+
+    if interaction.guild.id not in bot.music_players:
+        channel = interaction.user.voice.channel
+        voice_client = await channel.connect()
+        player = MusicPlayer(interaction.guild, interaction.channel, voice_client, bot)
+        bot.music_players[interaction.guild.id] = player
+    else:
+        player = bot.music_players[interaction.guild.id]
+        if not player.voice_client or not player.voice_client.is_connected():
+            channel = interaction.user.voice.channel
+            player.voice_client = await channel.connect()
     await player.queue.put(source)
     msg = f"✅ 대기열에 추가됨: [**{data['title']}**]({data['webpage_url']})"
     await send_temp(interaction, make_embed(msg))
