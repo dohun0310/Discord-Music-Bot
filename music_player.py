@@ -23,27 +23,17 @@ class MusicPlayer:
                 return
 
             self.next.clear()
-            try:
-                self.current = await asyncio.wait_for(self.queue.get(), timeout=300)
-            except asyncio.TimeoutError:
-                await self.text_channel.send(embed=make_embed("⌛ 5분 동안 대기열이 없어 연결을 종료합니다."))
+            
+            if self.queue.empty():
+                await self.text_channel.send(embed=make_embed("🎵 대기열이 비어 연결을 종료합니다."))
                 await self.destroy()
                 return
-
-            if len(self.voice_client.channel.members) <= 1:
-                await self.text_channel.send(embed=make_embed("💤 음성 채널에 아무도 없습니다. 연결을 종료합니다."))
-                await self.destroy()
-                return
+            self.current = None
 
             self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
             msg = f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
             await self.text_channel.send(embed=make_embed(msg), delete_after=60)
             await self.next.wait()
-            
-            if self.queue.empty():
-                await self.text_channel.send(embed=make_embed("🎵 노래가 끝났습니다. 5분 후에 연결을 종료합니다."))
-            
-            self.current = None
 
     async def destroy(self):
         self.queue = asyncio.Queue()
