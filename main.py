@@ -46,22 +46,6 @@ async def on_ready():
     except Exception as e:
         print(e)
 
-@bot.event
-async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    if member != bot.user:
-        return
-
-    if before.channel is not None and after.channel is None:
-        guild = member.guild
-        if guild.id in bot.music_players:
-            player = bot.music_players[guild.id]
-            text_channel = player.text_channel
-            try:
-                await text_channel.send(embed=make_embed("❗ 음성 연결이 끊어졌으므로 대기열을 초기화합니다."))
-                await player.destroy()
-            except Exception as e:
-                await text_channel.send(embed=make_embed(f"❗ 오류 발생: {e}"))
-
 @bot.tree.command(name="재생", description="YouTube에서 노래를 재생합니다.")
 @app_commands.describe(query="재생할 노래의 제목 또는 URL")
 async def 재생(interaction: discord.Interaction, query: str):
@@ -148,11 +132,23 @@ async def 스킵(interaction: discord.Interaction):
     else:
         await send_temp(interaction, make_embed("🚫 재생 중인 곡이 없습니다."))
 
+@bot.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    if member != bot.user:
+        return
+
+    if before.channel is not None and after.channel is None:
+        guild = member.guild
+        if guild.id in bot.music_players:
+            player = bot.music_players[guild.id]
+            text_channel = player.text_channel
+            await text_channel.send(embed=make_embed("❗ 음성 연결이 끊어졌으므로 대기열을 초기화합니다."))
+            await player.destroy()
+
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: Exception):
-    # 오류 메시지가 사라지지 않도록 일반 메시지로 전송합니다.
     if interaction.response.is_done():
-        await interaction.followup.send(embed=make_embed(f"❗ 오류가 발생했습니다 오류 내용: {error}"))
+        await interaction.followup.send(embed=make_embed(f"❗ 오류가 발생했습니다\n오류 내용: {error}"))
     else:
         await interaction.response.send_message(embed=make_embed(f"오류 내용: {error}"))
         
