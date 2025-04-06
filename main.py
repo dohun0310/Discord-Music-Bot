@@ -150,8 +150,6 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
         guild = member.guild
         if guild.id in bot.music_players:
             player = bot.music_players[guild.id]
-            text_channel = player.text_channel
-            await text_channel.send(embed=make_embed("❗ 음성 연결이 끊어졌으므로 대기열을 초기화합니다."))
             await player.destroy()
 
 @bot.tree.error
