@@ -35,7 +35,7 @@ class MusicPlayer:
                 await self.destroy()
                 return
 
-            self.voice_client.play(self.current, after=lambda e: self.bot.loop.call_soon_threadsafe(self.next.set))
+            self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
             msg = f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
             await self.text_channel.send(embed=make_embed(msg), delete_after=60)
             await self.next.wait()
