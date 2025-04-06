@@ -18,7 +18,16 @@ bot.music_players = {}
 
 async def get_player(interaction: discord.Interaction):
     if interaction.guild.id in bot.music_players:
-        return bot.music_players[interaction.guild.id]
+        player = bot.music_players[interaction.guild.id]
+
+        if not player.voice_client or not player.voice_client.is_connected():
+            if not (interaction.user.voice and interaction.user.voice.channel):
+                await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
+                return None
+            channel = interaction.user.voice.channel
+            player.voice_client = await channel.connect()
+        return player
+
     if not (interaction.user.voice and interaction.user.voice.channel):
         await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
         return None
@@ -36,6 +45,22 @@ async def on_ready():
         print(f"동기화된 커맨드 {len(synced)}개.")
     except Exception as e:
         print(e)
+
+@bot.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    if member != bot.user:
+        return
+
+    if before.channel is not None and after.channel is None:
+        guild = member.guild
+        if guild.id in bot.music_players:
+            player = bot.music_players[guild.id]
+            text_channel = player.text_channel
+            try:
+                await text_channel.send(embed=make_embed("❗ 음성 연결이 끊어졌으므로 대기열을 초기화합니다."))
+                await player.destroy()
+            except Exception as e:
+                await text_channel.send(embed=make_embed(f"❗ 오류 발생: {e}"))
 
 @bot.tree.command(name="재생", description="YouTube에서 노래를 재생합니다.")
 @app_commands.describe(query="재생할 노래의 제목 또는 URL")
