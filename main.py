@@ -78,10 +78,15 @@ async def 재생(interaction: discord.Interaction, query: str):
     if isinstance(data, list):
         sources = []
         for entry in data:
-            source = discord.FFmpegPCMAudio(entry['url'], **FFMPEG_OPTIONS)
-            source.title = entry['title']
-            source.webpage_url = entry['webpage_url']
-            sources.append(source)
+            if not all(key in entry for key in ("url", "title", "webpage_url")):
+                continue
+            try:
+                source = discord.FFmpegPCMAudio(entry['url'], **FFMPEG_OPTIONS)
+                source.title = entry['title']
+                source.webpage_url = entry['webpage_url']
+                sources.append(source)
+            except Exception:
+                continue
         if not sources:
             await send_temp(interaction, make_embed("❗ 유효한 플레이리스트를 찾지 못했습니다."))
             return
