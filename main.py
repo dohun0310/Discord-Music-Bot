@@ -59,13 +59,10 @@ async def 재생(interaction: discord.Interaction, query: str):
     except IndexError:
         await send_temp(interaction, make_embed("❗ 검색 결과가 없습니다."))
         return
-    if not data or "url" not in data or "title" not in data:
+
+    if not data or (not isinstance(data, list) and ("url" not in data or "title" not in data)):
         await send_temp(interaction, make_embed("❗ 검색 결과가 없습니다."))
         return
-
-    source = discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS)
-    source.title = data['title']
-    source.webpage_url = data['webpage_url']
 
     if interaction.guild.id not in bot.music_players:
         channel = interaction.user.voice.channel
@@ -77,9 +74,28 @@ async def 재생(interaction: discord.Interaction, query: str):
         if not player.voice_client or not player.voice_client.is_connected():
             channel = interaction.user.voice.channel
             player.voice_client = await channel.connect()
-    await player.queue.put(source)
-    msg = f"✅ 대기열에 추가됨: [**{data['title']}**]({data['webpage_url']})"
-    await send_temp(interaction, make_embed(msg))
+
+    if isinstance(data, list):
+        sources = []
+        for entry in data:
+            source = discord.FFmpegPCMAudio(entry['url'], **FFMPEG_OPTIONS)
+            source.title = entry['title']
+            source.webpage_url = entry['webpage_url']
+            sources.append(source)
+        if not sources:
+            await send_temp(interaction, make_embed("❗ 유효한 플레이리스트를 찾지 못했습니다."))
+            return
+        for s in sources:
+            await player.queue.put(s)
+        msg = f"✅ 플레이리스트에 총 {len(sources)}곡이 추가되었습니다."
+        await send_temp(interaction, make_embed(msg))
+    else:
+        source = discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS)
+        source.title = data['title']
+        source.webpage_url = data['webpage_url']
+        await player.queue.put(source)
+        msg = f"✅ 대기열에 추가됨: [**{data['title']}**]({data['webpage_url']})"
+        await send_temp(interaction, make_embed(msg))
 
 @bot.tree.command(name="대기열", description="현재 대기열을 확인합니다.")
 async def 대기열(interaction: discord.Interaction):

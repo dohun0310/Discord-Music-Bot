@@ -11,7 +11,18 @@ class YTDLSource:
     async def create_source(cls, query: str, *, loop: asyncio.AbstractEventLoop):
         data = await loop.run_in_executor(None, lambda: ytdl.extract_info(query, download=False))
         if "entries" in data:
-            data = data["entries"][0]
+            entries = [entry for entry in data["entries"] if entry]
+            if len(entries) > 1:
+                sources = []
+                for entry in entries:
+                    sources.append({
+                        "webpage_url": entry["webpage_url"],
+                        "title": entry["title"],
+                        "url": entry["url"]
+                    })
+                return sources
+            elif entries:
+                data = entries[0]
         return {
             "webpage_url": data["webpage_url"],
             "title": data["title"],
