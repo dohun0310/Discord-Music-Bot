@@ -39,7 +39,9 @@ class MusicPlayer:
             self.current = await self.queue.get()
             start_time = time.time()
             self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
-            progress_message = await self.text_channel.send(embed=make_embed(f"🎶 현재 재생: [**{self.current.title}**]"))
+            progress_message = await self.text_channel.send(embed=make_embed(
+                f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
+            ))
             try:
                 while not self.next.is_set():
                     elapsed = time.time() - start_time
@@ -47,8 +49,8 @@ class MusicPlayer:
                     if duration:
                         progress_str = f"[{format_time(elapsed)} / {format_time(duration)}]"
                     else:
-                        progress_str = f"재생 경과: {format_time(elapsed)}"
-                    new_msg = f"🎶 현재 재생: [**{self.current.title}**] {progress_str}"
+                        progress_str = f"재생 경과: {format_time(elapsed)} / --:--"
+                    new_msg = f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')}) {progress_str}"
                     await progress_message.edit(embed=make_embed(new_msg))
                     await asyncio.sleep(5)
             except asyncio.CancelledError:
