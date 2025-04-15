@@ -17,22 +17,26 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 bot.music_players = {}
 
+async def get_voice_channel(interaction: discord.Interaction) -> Optional[discord.VoiceChannel]:
+    if interaction.user.voice and interaction.user.voice.channel:
+        return interaction.user.voice.channel
+    await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
+    return None
+
 async def get_player(interaction: discord.Interaction) -> Optional[MusicPlayer]:
     if interaction.guild.id in bot.music_players:
         player = bot.music_players[interaction.guild.id]
 
         if not player.voice_client or not player.voice_client.is_connected():
-            if not (interaction.user.voice and interaction.user.voice.channel):
-                await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
+            channel = await get_voice_channel(interaction)
+            if not channel:
                 return None
-            channel = interaction.user.voice.channel
             player.voice_client = await channel.connect()
         return player
 
-    if not (interaction.user.voice and interaction.user.voice.channel):
-        await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
+    channel = await get_voice_channel(interaction)
+    if not channel:
         return None
-    channel = interaction.user.voice.channel
     voice_client = await channel.connect()
     player = MusicPlayer(interaction.guild, interaction.channel, voice_client, bot)
     bot.music_players[interaction.guild.id] = player
@@ -80,8 +84,8 @@ async def on_ready():
 @bot.tree.command(name="재생", description="YouTube에서 노래를 재생합니다.")
 @app_commands.describe(query="재생할 노래의 제목 또는 URL")
 async def 재생(interaction: discord.Interaction, query: str):
-    if not (interaction.user.voice and interaction.user.voice.channel):
-        await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
+    channel = await get_voice_channel(interaction)
+    if not channel:
         return
     await interaction.response.defer(ephemeral=False)
     loop = bot.loop
@@ -103,8 +107,8 @@ async def 재생(interaction: discord.Interaction, query: str):
 
 @bot.tree.command(name="대기열", description="현재 대기열을 확인합니다.")
 async def 대기열(interaction: discord.Interaction):
-    if not (interaction.user.voice and interaction.user.voice.channel):
-        await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
+    channel = await get_voice_channel(interaction)
+    if not channel:
         return
     await interaction.response.defer(ephemeral=False)
     player = await get_player(interaction)
@@ -124,8 +128,8 @@ async def 대기열(interaction: discord.Interaction):
 @bot.tree.command(name="삭제", description="대기열에서 지정한 순번의 곡을 제거합니다.")
 @app_commands.describe(position="제거할 곡의 순번 (1부터 시작)")
 async def 삭제(interaction: discord.Interaction, position: int):
-    if not (interaction.user.voice and interaction.user.voice.channel):
-        await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
+    channel = await get_voice_channel(interaction)
+    if not channel:
         return
     await interaction.response.defer(ephemeral=False)
     player = await get_player(interaction)
@@ -148,8 +152,8 @@ async def 삭제(interaction: discord.Interaction, position: int):
 
 @bot.tree.command(name="스킵", description="현재 재생 중인 곡을 건너뜁니다.")
 async def 스킵(interaction: discord.Interaction):
-    if not (interaction.user.voice and interaction.user.voice.channel):
-        await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
+    channel = await get_voice_channel(interaction)
+    if not channel:
         return
     await interaction.response.defer(ephemeral=False)
     player = await get_player(interaction)

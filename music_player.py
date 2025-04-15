@@ -30,13 +30,14 @@ class MusicPlayer:
             if self.queue.empty():
                 await self.text_channel.send(embed=make_embed("🎵 대기열이 비어있습니다. 30초 동안 기다립니다."))
                 try:
-                    await asyncio.wait_for(self.queue.get(), timeout=30)
+                    self.current = await asyncio.wait_for(self.queue.get(), timeout=30)
                 except asyncio.TimeoutError:
                     await self.text_channel.send(embed=make_embed("🎵 대기열이 비어 연결을 종료합니다."))
                     await self.destroy()
                     return
+            else:
+                self.current = await self.queue.get()
 
-            self.current = await self.queue.get()
             start_time = time.time()
             self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
             progress_message = await self.text_channel.send(embed=make_embed(
@@ -46,12 +47,11 @@ class MusicPlayer:
                 while not self.next.is_set():
                     elapsed = time.time() - start_time
                     duration = getattr(self.current, "duration", None)
-                    if duration:
-                        progress_str = f"[{format_time(elapsed)} / {format_time(duration)}]"
-                    else:
-                        progress_str = f"재생 경과: {format_time(elapsed)} / --:--"
-                    new_msg = f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')}) {progress_str}"
-                    await progress_message.edit(embed=make_embed(new_msg))
+                    progress_str = f"[{format_time(elapsed)} / {format_time(duration)}]" if duration else f"재생 경과: {format_time(elapsed)} / --:--"
+                    new_embed = make_embed(
+                        f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')}) {progress_str}"
+                    )
+                    await progress_message.edit(embed=new_embed)
                     await asyncio.sleep(5)
             except asyncio.CancelledError:
                 pass

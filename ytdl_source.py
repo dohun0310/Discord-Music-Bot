@@ -19,19 +19,28 @@ class YTDLSource:
             raise
 
         if "entries" in data:
-            entries = [entry for entry in data["entries"] if entry and all(key in entry for key in ("url", "title", "webpage_url"))]
-            if entries:
-                return [
-                    {
-                        "webpage_url": entry["webpage_url"],
-                        "title": entry["title"],
-                        "url": entry["url"]
-                    } for entry in entries
-                ]
+            return cls._process_playlist(data["entries"])
         elif all(key in data for key in ("url", "title", "webpage_url")):
-            return {
-                "webpage_url": data["webpage_url"],
-                "title": data["title"],
-                "url": data["url"]
-            }
+            return cls._process_single(data)
         return None
+
+    @staticmethod
+    def _process_playlist(entries: List[dict]) -> List[dict]:
+        valid_entries = [entry for entry in entries if entry and all(k in entry for k in ("url", "title", "webpage_url"))]
+        return [
+            {
+                "webpage_url": entry["webpage_url"],
+                "title": entry["title"],
+                "url": entry["url"],
+                "duration": entry.get("duration")
+            } for entry in valid_entries
+        ] if valid_entries else []
+
+    @staticmethod
+    def _process_single(data: dict) -> dict:
+        return {
+            "webpage_url": data["webpage_url"],
+            "title": data["title"],
+            "url": data["url"],
+            "duration": data.get("duration")
+        }
