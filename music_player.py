@@ -1,7 +1,11 @@
 import asyncio
 import discord
+import time
 from utils import make_embed
-from config import FFMPEG_OPTIONS
+
+def format_time(seconds: float) -> str:
+    m, s = divmod(int(seconds), 60)
+    return f"{m:02d}:{s:02d}"
 
 class MusicPlayer:
     def __init__(self, guild: discord.Guild, text_channel: discord.TextChannel, voice_client: discord.VoiceClient, bot: discord.ext.commands.Bot):
@@ -23,20 +27,40 @@ class MusicPlayer:
                 return
 
             self.next.clear()
-            await asyncio.sleep(1)
             if self.queue.empty():
-                await self.text_channel.send(embed=make_embed("🎵 대기열이 비어 연결을 종료합니다."))
-                await self.destroy()
-                return
-            
-            self.current = await self.queue.get()
+                await self.text_channel.send(embed=make_embed("🎵 대기열이 비어있습니다. 30초 동안 기다립니다."))
+                try:
+                    await asyncio.wait_for(self.queue.get(), timeout=30)
+                except asyncio.TimeoutError:
+                    await self.text_channel.send(embed=make_embed("🎵 대기열이 비어 연결을 종료합니다."))
+                    await self.destroy()
+                    return
 
+            self.current = await self.queue.get()
+            start_time = time.time()
             self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
-            msg = f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
-            await self.text_channel.send(embed=make_embed(msg), delete_after=60)
-            await self.next.wait()
+            progress_message = await self.text_channel.send(embed=make_embed(f"🎶 현재 재생: [**{self.current.title}**]"))
+            try:
+                while not self.next.is_set():
+                    elapsed = time.time() - start_time
+                    duration = getattr(self.current, "duration", None)
+                    if duration:
+                        progress_str = f"[{format_time(elapsed)} / {format_time(duration)}]"
+                    else:
+                        progress_str = f"재생 경과: {format_time(elapsed)}"
+                    new_msg = f"🎶 현재 재생: [**{self.current.title}**] {progress_str}"
+                    await progress_message.edit(embed=make_embed(new_msg))
+                    await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                pass
+            await progress_message.delete()
 
     async def destroy(self):
+        self.player_task.cancel()
+        try:
+            await self.player_task
+        except asyncio.CancelledError:
+            pass
         self.queue = asyncio.Queue()
         if self.voice_client.is_connected():
             await self.voice_client.disconnect()

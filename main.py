@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import asyncio
+from typing import Optional
 
 from config import BOT_TOKEN, FFMPEG_OPTIONS
 from utils import make_embed, send_temp
@@ -16,7 +17,7 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 bot.music_players = {}
 
-async def get_player(interaction: discord.Interaction):
+async def get_player(interaction: discord.Interaction) -> Optional[MusicPlayer]:
     if interaction.guild.id in bot.music_players:
         player = bot.music_players[interaction.guild.id]
 
@@ -36,6 +37,36 @@ async def get_player(interaction: discord.Interaction):
     player = MusicPlayer(interaction.guild, interaction.channel, voice_client, bot)
     bot.music_players[interaction.guild.id] = player
     return player
+
+async def process_ytdl_data(interaction: discord.Interaction, data, player):
+    if isinstance(data, list):
+        sources = []
+        for entry in data:
+            if not all(key in entry for key in ("url", "title", "webpage_url")):
+                continue
+            try:
+                source = discord.FFmpegPCMAudio(entry['url'], **FFMPEG_OPTIONS)
+                source.title = entry['title']
+                source.webpage_url = entry['webpage_url']
+                source.duration = entry.get('duration')
+                sources.append(source)
+            except Exception:
+                continue
+        if not sources:
+            await send_temp(interaction, make_embed("❗ 유효한 플레이리스트를 찾지 못했습니다."))
+            return
+        for s in sources:
+            await player.queue.put(s)
+        msg = f"✅ 플레이리스트에 총 {len(sources)}곡이 추가되었습니다."
+        await send_temp(interaction, make_embed(msg))
+    else:
+        source = discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS)
+        source.title = data['title']
+        source.webpage_url = data['webpage_url']
+        source.duration = data.get('duration')
+        await player.queue.put(source)
+        msg = f"✅ 대기열에 추가됨: [**{data['title']}**]({data['webpage_url']})"
+        await send_temp(interaction, make_embed(msg))
 
 @bot.event
 async def on_ready():
@@ -64,43 +95,11 @@ async def 재생(interaction: discord.Interaction, query: str):
         await send_temp(interaction, make_embed("❗ 검색 결과가 없습니다."))
         return
 
-    if interaction.guild.id not in bot.music_players:
-        channel = interaction.user.voice.channel
-        voice_client = await channel.connect()
-        player = MusicPlayer(interaction.guild, interaction.channel, voice_client, bot)
-        bot.music_players[interaction.guild.id] = player
-    else:
-        player = bot.music_players[interaction.guild.id]
-        if not player.voice_client or not player.voice_client.is_connected():
-            channel = interaction.user.voice.channel
-            player.voice_client = await channel.connect()
+    player = await get_player(interaction)
+    if player is None:
+        return
 
-    if isinstance(data, list):
-        sources = []
-        for entry in data:
-            if not all(key in entry for key in ("url", "title", "webpage_url")):
-                continue
-            try:
-                source = discord.FFmpegPCMAudio(entry['url'], **FFMPEG_OPTIONS)
-                source.title = entry['title']
-                source.webpage_url = entry['webpage_url']
-                sources.append(source)
-            except Exception:
-                continue
-        if not sources:
-            await send_temp(interaction, make_embed("❗ 유효한 플레이리스트를 찾지 못했습니다."))
-            return
-        for s in sources:
-            await player.queue.put(s)
-        msg = f"✅ 플레이리스트에 총 {len(sources)}곡이 추가되었습니다."
-        await send_temp(interaction, make_embed(msg))
-    else:
-        source = discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS)
-        source.title = data['title']
-        source.webpage_url = data['webpage_url']
-        await player.queue.put(source)
-        msg = f"✅ 대기열에 추가됨: [**{data['title']}**]({data['webpage_url']})"
-        await send_temp(interaction, make_embed(msg))
+    await process_ytdl_data(interaction, data, player)
 
 @bot.tree.command(name="대기열", description="현재 대기열을 확인합니다.")
 async def 대기열(interaction: discord.Interaction):
