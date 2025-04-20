@@ -58,6 +58,9 @@ class MusicPlayer:
             await progress_message.delete()
 
     async def destroy(self):
+        if self.voice_client.is_playing():
+            self.voice_client.stop()
+        self.current = None
         self.player_task.cancel()
         try:
             await self.player_task

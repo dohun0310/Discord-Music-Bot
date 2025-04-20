@@ -53,6 +53,7 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player):
                 source.title = entry['title']
                 source.webpage_url = entry['webpage_url']
                 source.duration = entry.get('duration')
+                source.requester = interaction.user.mention
                 sources.append(source)
             except Exception:
                 continue
@@ -68,6 +69,7 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player):
         source.title = data['title']
         source.webpage_url = data['webpage_url']
         source.duration = data.get('duration')
+        source.requester = interaction.user.mention
         await player.queue.put(source)
         msg = f"✅ 대기열에 추가됨: [**{data['title']}**]({data['webpage_url']})"
         await send_temp(interaction, make_embed(msg))
@@ -116,13 +118,13 @@ async def 대기열(interaction: discord.Interaction):
         return
     msg = ""
     if player.current:
-        msg += f"🎵 현재 재생: [**{player.current.title}**]({getattr(player.current, 'webpage_url', 'https://www.youtube.com/')})\n"
+        msg += f"🎵 현재 재생: [**{player.current.title}**]({getattr(player.current, 'webpage_url', 'https://www.youtube.com/')}) - {player.current.requester}\n"
     if player.queue.empty():
         msg += "📭 대기열이 비어있습니다."
     else:
         queue_list = list(player.queue._queue)
         for i, song in enumerate(queue_list, 1):
-            msg += f"{i}. [**{song.title}**]({getattr(song, 'webpage_url', 'https://www.youtube.com/')})\n"
+            msg += f"{i}. [**{song.title}**]({getattr(song, 'webpage_url', 'https://www.youtube.com/')}) - {song.requester}\n"
     await send_temp(interaction, make_embed(msg))
 
 @bot.tree.command(name="삭제", description="대기열에서 지정한 순번의 곡을 제거합니다.")
@@ -170,7 +172,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
     if member != bot.user:
         return
 
-    if before.channel is not None and after.channel is None:
+    if before.channel and before.channel != after.channel:
         guild = member.guild
         if guild.id in bot.music_players:
             player = bot.music_players[guild.id]
