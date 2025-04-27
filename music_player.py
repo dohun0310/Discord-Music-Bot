@@ -44,24 +44,29 @@ class MusicPlayer:
 
                 start_time = time.time()
                 self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
-                progress_message = await self.text_channel.send(embed=make_embed(
-                    f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
-                ))
-                while not self.next.is_set():
-                    elapsed = time.time() - start_time
-                    duration = getattr(self.current, "duration", None)
-                    if duration is not None:
-                        progress_str = f"[{format_time(elapsed)} / {format_time(duration)}]"
-                    else:
-                        progress_str = f"[{format_time(elapsed)} / --:--]"
-                    new_embed = make_embed(
-                        f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')}) {progress_str}"
-                    )
-                    await progress_message.edit(embed=new_embed)
-                    await asyncio.sleep(5)
-                await progress_message.delete()
+                progress_message = await self.text_channel.send(embed=self.build_now_playing_embed())
+                asyncio.create_task(self._delete_later(progress_message, 30))
+                await self.next.wait()
         except asyncio.CancelledError:
             return
+
+    async def _delete_later(self, message, delay: int):
+        await asyncio.sleep(delay)
+        try:
+            await message.delete()
+        except:
+            pass
+
+    def build_now_playing_embed(self):
+        elapsed = time.time() - getattr(self.current, "start_time", time.time())
+        duration = getattr(self.current, "duration", None)
+        if duration is not None:
+            progress_str = f"[{format_time(elapsed)} / {format_time(duration)}]"
+        else:
+            progress_str = f"[{format_time(elapsed)} / --:--]"
+        return make_embed(
+            f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')}) {progress_str}"
+        )
 
     def clear_queue(self):
         """대기열에 남은 트랙을 모두 제거합니다."""
