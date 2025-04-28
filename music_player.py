@@ -18,44 +18,50 @@ class MusicPlayer:
         self.current = None
         self.player_task = self.bot.loop.create_task(self.player_loop())
 
-    async def player_loop(self):
-        await self.bot.wait_until_ready()
-        while not self.bot.is_closed():
-            if len(self.voice_client.channel.members) <= 1:
-                await self.text_channel.send(embed=make_embed("💤 음성 채널에 아무도 없습니다. 연결을 종료합니다."))
-                await self.destroy()
-                return
+    def get_queue_items(self) -> list[discord.FFmpegPCMAudio]:
+        return list(self.queue._queue)
 
-            self.next.clear()
-            if self.queue.empty():
-                await self.text_channel.send(embed=make_embed("🎵 대기열이 비어있습니다. 30초 동안 기다립니다."))
-                try:
-                    self.current = await asyncio.wait_for(self.queue.get(), timeout=30)
-                except asyncio.TimeoutError:
-                    await self.text_channel.send(embed=make_embed("🎵 대기열이 비어 연결을 종료합니다."))
+    async def player_loop(self):
+        try:
+            await self.bot.wait_until_ready()
+            while not self.bot.is_closed():
+                if len(self.voice_client.channel.members) <= 1:
+                    await self.text_channel.send(embed=make_embed("💤 음성 채널에 아무도 없습니다. 연결을 종료합니다."))
                     await self.destroy()
                     return
-            else:
-                self.current = await self.queue.get()
 
-            start_time = time.time()
-            self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
-            progress_message = await self.text_channel.send(embed=make_embed(
-                f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
-            ))
-            try:
+                self.next.clear()
+                if self.queue.empty():
+                    await self.text_channel.send(embed=make_embed("🎵 대기열이 비어있습니다. 30초 동안 기다립니다."))
+                    try:
+                        self.current = await asyncio.wait_for(self.queue.get(), timeout=30)
+                    except asyncio.TimeoutError:
+                        await self.text_channel.send(embed=make_embed("🎵 대기열이 비어 연결을 종료합니다."))
+                        await self.destroy()
+                        return
+                else:
+                    self.current = await self.queue.get()
+
+                start_time = time.time()
+                self.voice_client.play(self.current, after=lambda e, **_: self.bot.loop.call_soon_threadsafe(self.next.set))
+                progress_message = await self.text_channel.send(embed=make_embed(
+                    f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')})"
+                ))
                 while not self.next.is_set():
                     elapsed = time.time() - start_time
                     duration = getattr(self.current, "duration", None)
-                    progress_str = f"[{format_time(elapsed)} / {format_time(duration)}]" if duration else f"재생 경과: {format_time(elapsed)} / --:--"
+                    if duration is not None:
+                        progress_str = f"[{format_time(elapsed)} / {format_time(duration)}]"
+                    else:
+                        progress_str = f"[{format_time(elapsed)} / --:--]"
                     new_embed = make_embed(
                         f"🎶 현재 재생: [**{self.current.title}**]({getattr(self.current, 'webpage_url', 'https://www.youtube.com/')}) {progress_str}"
                     )
                     await progress_message.edit(embed=new_embed)
                     await asyncio.sleep(5)
-            except asyncio.CancelledError:
-                pass
-            await progress_message.delete()
+                await progress_message.delete()
+        except asyncio.CancelledError:
+            return
 
     async def destroy(self):
         if self.voice_client.is_playing():
