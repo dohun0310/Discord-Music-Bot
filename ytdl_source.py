@@ -19,6 +19,10 @@ class YTDLSource:
                 return None
             raise
 
+        if data is None:
+            logger.warning(f"No data returned for query '{query}'")
+            return None
+
         if "entries" in data:
             return cls._process_playlist(data["entries"])
         elif all(key in data for key in ("url", "title", "webpage_url")):
