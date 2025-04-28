@@ -63,16 +63,24 @@ class MusicPlayer:
         except asyncio.CancelledError:
             return
 
+    def clear_queue(self):
+        """대기열에 남은 트랙을 모두 제거합니다."""
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
     async def destroy(self):
         if self.voice_client.is_playing():
             self.voice_client.stop()
         self.current = None
+        self.clear_queue()
         self.player_task.cancel()
         try:
             await self.player_task
         except asyncio.CancelledError:
             pass
-        self.queue = asyncio.Queue()
         if self.voice_client.is_connected():
             await self.voice_client.disconnect()
         if self.guild.id in self.bot.music_players:

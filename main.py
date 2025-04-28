@@ -173,14 +173,21 @@ async def 스킵(interaction: discord.Interaction):
 
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    if member != bot.user:
+    if member == bot.user:
+        if before.channel and before.channel != after.channel:
+            guild = member.guild
+            if guild.id in bot.music_players:
+                player = bot.music_players[guild.id]
+                await player.destroy()
         return
 
     if before.channel and before.channel != after.channel:
-        guild = member.guild
-        if guild.id in bot.music_players:
-            player = bot.music_players[guild.id]
-            await player.destroy()
+        guild_id = member.guild.id
+        if guild_id in bot.music_players:
+            player = bot.music_players[guild_id]
+            vc = player.voice_clientroy()
+            if vc and vc.channel and len(vc.channel.members) <= 1:
+                await player.destroy()
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: Exception):
