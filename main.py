@@ -116,15 +116,18 @@ async def 대기열(interaction: discord.Interaction):
     player = await get_player(interaction)
     if player is None:
         return
+
     msg = ""
     if player.current:
         msg += f"🎵 현재 재생: [**{player.current.title}**]({getattr(player.current, 'webpage_url', 'https://www.youtube.com/')}) - {player.current.requester}\n"
-    if player.queue.empty():
+
+    queue_list = player.get_queue_items()
+    if not queue_list:
         msg += "📭 대기열이 비어있습니다."
     else:
-        queue_list = list(player.queue._queue)
         for i, song in enumerate(queue_list, 1):
             msg += f"{i}. [**{song.title}**]({getattr(song, 'webpage_url', 'https://www.youtube.com/')}) - {song.requester}\n"
+
     await send_temp(interaction, make_embed(msg))
 
 @bot.tree.command(name="삭제", description="대기열에서 지정한 순번의 곡을 제거합니다.")
@@ -137,20 +140,21 @@ async def 삭제(interaction: discord.Interaction, position: int):
     player = await get_player(interaction)
     if player is None:
         return
-    if player.queue.empty():
+
+    queue_list = player.get_queue_items()
+    if not queue_list:
         await send_temp(interaction, make_embed("📭 대기열이 비어있습니다."))
         return
-    queue_list = list(player.queue._queue)
     if position < 1 or position > len(queue_list):
         await send_temp(interaction, make_embed("❗ 유효하지 않은 순번입니다."))
         return
+
     removed = queue_list.pop(position - 1)
-    new_queue = asyncio.Queue()
+    player.queue = asyncio.Queue()
     for song in queue_list:
-        await new_queue.put(song)
-    player.queue = new_queue
-    msg = f"🗑️ 제거됨: **{removed.title}**"
-    await send_temp(interaction, make_embed(msg))
+        await player.queue.put(song)
+
+    await send_temp(interaction, make_embed(f"🗑️ 제거됨: **{removed.title}**"))
 
 @bot.tree.command(name="스킵", description="현재 재생 중인 곡을 건너뜁니다.")
 async def 스킵(interaction: discord.Interaction):
