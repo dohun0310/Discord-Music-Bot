@@ -185,7 +185,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
         guild_id = member.guild.id
         if guild_id in bot.music_players:
             player = bot.music_players[guild_id]
-            vc = player.voice_client()
+            vc = player.voice_client
             if vc and vc.channel and len(vc.channel.members) <= 1:
                 await player.destroy()
 
