@@ -15,7 +15,7 @@ class YTDLSource:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(query, download=False))
         except yt_dlp.utils.DownloadError as e:
             logger.warning(f"YTDL download error for '{query}': {e}")
-            if "Private video" in str(e):
+            if "Private video" in str(e) or "Video unavailable" in str(e):
                 return None
             raise
 
