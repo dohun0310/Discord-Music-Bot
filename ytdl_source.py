@@ -1,11 +1,12 @@
 import asyncio
 import yt_dlp
+import logging
 from typing import Optional, Union, List
 from config import YTDL_OPTIONS
 
 yt_dlp.utils.bug_reports_message = lambda: ""
-
 ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
+logger = logging.getLogger(__name__)
 
 class YTDLSource:
     @classmethod
@@ -13,7 +14,7 @@ class YTDLSource:
         try:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(query, download=False))
         except yt_dlp.utils.DownloadError as e:
-            print(f"Error extracting info for query '{query}': {e}")
+            logger.warning(f"YTDL download error for '{query}': {e}")
             if "Private video" in str(e):
                 return None
             raise
@@ -22,6 +23,7 @@ class YTDLSource:
             return cls._process_playlist(data["entries"])
         elif all(key in data for key in ("url", "title", "webpage_url")):
             return cls._process_single(data)
+        logger.warning(f"No valid data returned for query '{query}': {data}")
         return None
 
     @staticmethod
