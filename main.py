@@ -187,6 +187,34 @@ async def 정지(interaction: discord.Interaction):
     else:
         await send_temp(interaction, make_embed("🚫 재생 중인 곡이 없습니다."))
 
+@bot.tree.command(name="현재곡", description="현재 재생 중인 곡을 표시합니다.")
+async def 현재곡(interaction: discord.Interaction):
+    channel = await get_voice_channel(interaction)
+    if not channel:
+        return
+    await interaction.response.defer(ephemeral=False)
+    player = await get_player(interaction)
+    if player is None:
+        return
+
+    if not getattr(player, "current", None):
+        await send_temp(interaction, make_embed("🚫 재생 중인 곡이 없습니다."))
+        return
+
+    embed = make_embed(
+        f"🎵 현재 재생 중: [**{player.current.title}**]({getattr(player.current, 'webpage_url', '')})",
+        description=f"⏱️ `{player.current.requester}`"
+    )
+    msg = await interaction.followup.send(embed=embed)
+    asyncio.create_task(delete_after(msg, 30))
+
+async def delete_after(message, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await message.delete()
+    except:
+        pass
+
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
     if member == bot.user:
