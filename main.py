@@ -222,7 +222,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             guild = member.guild
             if guild.id in bot.music_players:
                 player = bot.music_players[guild.id]
-                await player.destroy()
+                await player.destroy(notify=True)
         return
 
     if before.channel and before.channel != after.channel:
@@ -231,7 +231,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             player = bot.music_players[guild_id]
             vc = player.voice_client
             if vc and vc.channel and len(vc.channel.members) <= 1:
-                await player.destroy()
+                await player.destroy(notify=True)
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: Exception):

@@ -76,7 +76,9 @@ class MusicPlayer:
             except asyncio.QueueEmpty:
                 break
 
-    async def destroy(self):
+    async def destroy(self, notify: bool = False):
+        if notify:
+            await self.text_channel.send(embed=make_embed("👋 음성 채널에 아무도 없어 연결을 종료합니다."))
         if self.voice_client.is_playing():
             self.voice_client.stop()
         self.current = None
