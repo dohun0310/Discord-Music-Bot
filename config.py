@@ -14,7 +14,9 @@ YTDL_OPTIONS = {
     "quiet": True,
     "no_warnings": True,
     "default_search": "auto",
-    "source_address": "0.0.0.0"
+    "source_address": "0.0.0.0",
+    "extract_flat": "discard_in_playlist",
+    "playlist_items": "1-10"
 }
 
 FFMPEG_OPTIONS = {
