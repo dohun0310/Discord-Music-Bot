@@ -35,6 +35,7 @@ class YTDLSource:
         playlist_start_index: int = 1
     ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
         current_opts = YTDL_OPTIONS.copy()
+        is_search = not (query.startswith("http://") or query.startswith("https://"))
 
         if get_next_batch:
             playlist_end_index = playlist_start_index + PLAYLIST_BATCH_SIZE - 1
@@ -62,6 +63,16 @@ class YTDLSource:
 
         if data is None:
             logger.warning(f"No data returned from YTDL for query '{query}'")
+            return None
+
+        if not get_next_batch and is_search and "entries" in data:
+            processed = [cls._process_entry(entry) for entry in data["entries"] if entry]
+            valid = [e for e in processed if e]
+            if valid:
+                first = valid[0]
+                logger.info(f"검색어 '{query}' 결과 처리: 첫 곡 반환 '{first['title']}'")
+                first["type"] = "track"
+                return first
             return None
 
         if "entries" in data:
