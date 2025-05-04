@@ -27,7 +27,8 @@ class MusicPlayer:
         self.queue = asyncio.Queue()
         self.next = asyncio.Event()
         self.current: Optional[discord.FFmpegPCMAudio] = None
-        self.player_task: Optional[asyncio.Task] = None
+        self.player_task = self.bot.loop.create_task(self.player_loop())
+        self.start_time: Optional[float] = None
 
         self.current_playlist_url: Optional[str] = None
         self.next_playlist_index: int = 1
@@ -134,6 +135,7 @@ class MusicPlayer:
                  return
 
             if self.current:
+                self.start_time = self.bot.loop.time()
                 logger.info(f"[{self.guild.name}] 다음 곡 재생 시작: {self.current.title}")
                 try:
                     self.voice_client.play(self.current, after=lambda e: self.bot.loop.call_soon_threadsafe(self._playback_finished, e))
@@ -176,6 +178,16 @@ class MusicPlayer:
         description += f"요청: {requester}"
         embed.description = description
         return embed
+    
+    def get_playback_time(self) -> Optional[float]:
+        if not self.current or self.start_time is None:
+            return None
+        elapsed = self.bot.loop.time() - self.start_time
+
+        duration = getattr(self.current, 'duration', None)
+        if duration is not None:
+            return min(elapsed, duration)
+        return elapsed
 
     def clear_queue(self):
         count = self.queue.qsize()
