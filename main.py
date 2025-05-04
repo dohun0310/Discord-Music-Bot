@@ -265,7 +265,6 @@ async def 대기열(interaction: discord.Interaction):
 
 @bot.tree.command(name="삭제", description="대기열에서 지정한 순번의 곡을 제거합니다.")
 @app_commands.describe(position="제거할 곡의 순번 (1부터 시작)")
-@app_commands.rename(position='순번')
 async def 삭제(interaction: discord.Interaction, 순번: app_commands.Range[int, 1]):
     player = bot.music_players.get(interaction.guild.id)
     if player is None or not player.voice_client or not player.voice_client.is_connected():
