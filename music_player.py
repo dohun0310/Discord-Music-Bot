@@ -101,11 +101,6 @@ class MusicPlayer:
         while True:
             self.next.clear()
 
-            if self.voice_client.is_playing():
-                logger.debug(f"[{self.guild.name}] 이미 곡이 재생 중입니다. 현재 곡 종료 대기 중...")
-                await self.next.wait()
-                continue
-
             LAZY_LOAD_THRESHOLD = 3
             if self.queue.qsize() < LAZY_LOAD_THRESHOLD and self.current_playlist_url and not self.loading_next_batch:
                 asyncio.create_task(self._load_next_playlist_batch())
@@ -120,13 +115,14 @@ class MusicPlayer:
                 await self.text_channel.send(embed=make_embed("💤 음성 채널에 아무도 없습니다. 60초 후 연결을 종료합니다."))
 
                 await asyncio.sleep(60)
-                if not self.voice_client or not self.voice_client.is_connected(): return
+                if not self.voice_client or not self.voice_client.is_connected():
+                    return
                 if len(self.voice_client.channel.members) <= 1:
                     logger.info(f"[{self.guild.name}] 60초 경과, 여전히 혼자이므로 연결 종료.")
                     await self.destroy(notify=False)
                     return
                 else:
-                     logger.info(f"[{self.guild.name}] 60초 타이머 중 유저 재입장. 재생 계속.")
+                    logger.info(f"[{self.guild.name}] 60초 타이머 중 유저 재입장. 재생 계속.")
 
             try:
                 self.current = await asyncio.wait_for(self.queue.get(), timeout=300)
@@ -136,27 +132,19 @@ class MusicPlayer:
                 await self.destroy(notify=False)
                 return
             except asyncio.CancelledError:
-                 logger.info(f"[{self.guild.name}] player_loop 태스크 취소됨.")
-                 return
+                logger.info(f"[{self.guild.name}] player_loop 태스크 취소됨.")
+                return
 
             if self.current:
                 self.start_time = self.bot.loop.time()
                 logger.info(f"[{self.guild.name}] 다음 곡 재생 시작: {self.current.title}")
-                wait_timeout = 5
-                for _ in range(wait_timeout * 10):
-                    if not self.voice_client.is_playing():
-                        break
-                    await asyncio.sleep(0.1)
-                else:
-                    logger.warning(f"[{self.guild.name}] 이전 곡 재생이 예상보다 오래 지속됨. 강제로 다음 곡 재생 시도.")
                 try:
                     self.voice_client.play(self.current, after=lambda e: self.bot.loop.call_soon_threadsafe(self._playback_finished, e))
-
                     await self.text_channel.send(embed=self.build_now_playing_embed())
                 except discord.ClientException as e:
-                     logger.error(f"[{self.guild.name}] 음원 재생 실패 (ClientException): {e}")
-                     await self.text_channel.send(embed=make_embed(f"⚠️ 음원 재생 중 오류 발생: {e}"))
-                     self.bot.loop.call_soon_threadsafe(self.next.set)
+                    logger.error(f"[{self.guild.name}] 음원 재생 실패 (ClientException): {e}")
+                    await self.text_channel.send(embed=make_embed(f"⚠️ 음원 재생 중 오류 발생: {e}"))
+                    self.bot.loop.call_soon_threadsafe(self.next.set)
                 except Exception as e:
                     logger.error(f"[{self.guild.name}] 음원 재생 중 예외 발생: {e}", exc_info=True)
                     await self.text_channel.send(embed=make_embed(f"⚠️ 예상치 못한 재생 오류 발생: {e}"))
