@@ -136,25 +136,27 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player: Musi
             await interaction.followup.send(embed=make_embed(msg))
 
         elif isinstance(data, dict) and not is_playlist:
-            if not all(key in data for key in ("url", "title", "webpage_url")):
-                logger.warning(f"[{interaction.guild.name}] 단일 곡 정보 키 누락: {data.get('title')}")
-                await interaction.followup.send(embed=make_embed("❗ 유효한 음악 정보를 찾지 못했습니다. (키 누락)"))
-                return
-            try:
-                source = discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS)
-                source.title = data['title']
-                source.webpage_url = data['webpage_url']
-                source.duration = data.get('duration')
-                source.requester = requester_mention
-                await player.queue.put(source)
-                added_count = 1
-                logger.info(f"[{interaction.guild.name}] 단일 곡 추가: '{source.title}', 요청자: {interaction.user.name}")
-                msg = f"✅ 대기열에 추가됨: [**{source.title}**]({source.webpage_url})"
-                await interaction.followup.send(embed=make_embed(msg))
-            except Exception as e:
-                logger.error(f"[{interaction.guild.name}] 단일 곡 FFmpegPCMAudio 생성 실패: {data.get('title')}, 오류: {e}")
-                await interaction.followup.send(embed=make_embed(f"❗ 곡을 처리하는 중 오류 발생: {e}"))
-                return
+            entries = data.get("entries", [])
+            for entry in entries:
+                if not all(key in entry for key in ("url", "title", "webpage_url")):
+                    logger.warning(f"[{interaction.guild.name}] 단일 곡 정보 키 누락: {entry.get('title')}")
+                    await interaction.followup.send(embed=make_embed("❗ 유효한 음악 정보를 찾지 못했습니다. (키 누락)"))
+                    return
+                try:
+                    source = discord.FFmpegPCMAudio(entry['url'], **FFMPEG_OPTIONS)
+                    source.title = entry['title']
+                    source.webpage_url = entry['webpage_url']
+                    source.duration = entry.get('duration')
+                    source.requester = requester_mention
+                    await player.queue.put(source)
+                    added_count = 1
+                    logger.info(f"[{interaction.guild.name}] 단일 곡 추가: '{source.title}', 요청자: {interaction.user.name}")
+                    msg = f"✅ 대기열에 추가됨: [**{source.title}**]({source.webpage_url})"
+                    await interaction.followup.send(embed=make_embed(msg))
+                except Exception as e:
+                    logger.error(f"[{interaction.guild.name}] 단일 곡 FFmpegPCMAudio 생성 실패: {entry.get('title')}, 오류: {e}")
+                    await interaction.followup.send(embed=make_embed(f"❗ 곡을 처리하는 중 오류 발생: {e}"))
+                    return
 
         else:
             logger.error(f"[{interaction.guild.name}] 처리할 수 없는 데이터 형식 수신: {type(data)}")
@@ -198,10 +200,7 @@ async def 재생(interaction: discord.Interaction, query: str):
     loop = bot.loop
     try:
         logger.info(f"[{interaction.guild.name}] YTDL 정보 검색 시작: '{query}'")
-        data = await YTDLSource.create_source(
-            query,
-            loop=loop
-        )
+        data = await YTDLSource.create_source(query, loop=loop)
     except yt_dlp.utils.DownloadError as e:
         logger.warning(f"[{interaction.guild.name}] YTDL DownloadError for '{query}': {e}")
 
