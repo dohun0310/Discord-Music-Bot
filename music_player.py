@@ -142,6 +142,13 @@ class MusicPlayer:
             if self.current:
                 self.start_time = self.bot.loop.time()
                 logger.info(f"[{self.guild.name}] 다음 곡 재생 시작: {self.current.title}")
+                wait_timeout = 5
+                for _ in range(wait_timeout * 10):
+                    if not self.voice_client.is_playing():
+                        break
+                    await asyncio.sleep(0.1)
+                else:
+                    logger.warning(f"[{self.guild.name}] 이전 곡 재생이 예상보다 오래 지속됨. 강제로 다음 곡 재생 시도.")
                 try:
                     self.voice_client.play(self.current, after=lambda e: self.bot.loop.call_soon_threadsafe(self._playback_finished, e))
 
