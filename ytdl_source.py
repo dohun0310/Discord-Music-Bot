@@ -10,25 +10,30 @@ logger = logging.getLogger(__name__)
 
 class YTDLSource:
     @classmethod
-    async def create_source(cls, query: str, *, loop: asyncio.AbstractEventLoop) -> Optional[Union[dict, List[dict]]]:
-        try:
-            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(query, download=False))
-        except yt_dlp.utils.DownloadError as e:
-            logger.warning(f"YTDL download error for '{query}': {e}")
-            if "Private video" in str(e) or "Video unavailable" in str(e):
-                return None
-            raise
+    async def create_source(cls, query: str, *, loop: asyncio.AbstractEventLoop, get_next_batch=False, playlist_start_index=1):
+        custom_ytdl_opts = YTDL_OPTIONS.copy()
+        if not get_next_batch:
+            custom_ytdl_opts['extract_flat'] = True
+
+        local_ytdl = yt_dlp.YoutubeDL(custom_ytdl_opts)
+        data = await loop.run_in_executor(None, lambda: local_ytdl.extract_info(query, download=False))
 
         if data is None:
-            logger.warning(f"No data returned for query '{query}'")
             return None
 
         if "entries" in data:
-            return cls._process_playlist(data["entries"])
-        elif all(key in data for key in ("url", "title", "webpage_url")):
+            if not get_next_batch:
+                return {
+                    "type": "playlist",
+                    "original_url": data.get('webpage_url') or query,
+                    "title": data.get('title', 'Unknown Playlist'),
+                    "entries": cls._process_playlist(data["entries"]),
+                    "next_start_index": playlist_start_index + len(data["entries"])
+                }
+            else:
+                return cls._process_playlist(data["entries"])
+        else:
             return cls._process_single(data)
-        logger.warning(f"No valid data returned for query '{query}': {data}")
-        return None
 
     @staticmethod
     def _process_playlist(entries: List[dict]) -> List[dict]:
