@@ -144,10 +144,12 @@ class MusicPlayer:
                 except discord.ClientException as e:
                     logger.error(f"[{self.guild.name}] 음원 재생 실패 (ClientException): {e}")
                     await self.text_channel.send(embed=make_embed(f"⚠️ 음원 재생 중 오류 발생: {e}"))
+                    self.current = None
                     self.bot.loop.call_soon_threadsafe(self.next.set)
                 except Exception as e:
                     logger.error(f"[{self.guild.name}] 음원 재생 중 예외 발생: {e}", exc_info=True)
                     await self.text_channel.send(embed=make_embed(f"⚠️ 예상치 못한 재생 오류 발생: {e}"))
+                    self.current = None
                     self.bot.loop.call_soon_threadsafe(self.next.set)
 
                 await self.next.wait()
@@ -157,8 +159,9 @@ class MusicPlayer:
             logger.error(f"[{self.guild.name}] 재생 중 오류 발생 (after callback): {error}")
             asyncio.run_coroutine_threadsafe(self.text_channel.send(embed=make_embed(f"⚠️ 재생 중 오류: {error}")), self.bot.loop)
         else:
-             logger.info(f"[{self.guild.name}] 곡 재생 완료: {getattr(self.current, 'title', '알 수 없는 곡')}")
+            logger.info(f"[{self.guild.name}] 곡 재생 완료: {getattr(self.current, 'title', '알 수 없는 곡')}")
 
+        self.current = None
         self.next.set()
 
 
