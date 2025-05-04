@@ -137,9 +137,9 @@ class MusicPlayer:
 
             if next_song:
                 logger.info(f"[{self.guild.name}] 다음 곡 재생 시작: {getattr(next_song, 'title', '알 수 없는 곡')}")
+                self.current = next_song
                 try:
                     self.voice_client.play(next_song, after=lambda e: self.bot.loop.call_soon_threadsafe(self._playback_finished, e))
-                    self.current = next_song
                     self.start_time = self.bot.loop.time()
                     await self.text_channel.send(embed=self.build_now_playing_embed())
                 except discord.ClientException as e:
@@ -170,7 +170,10 @@ class MusicPlayer:
         except Exception as e:
             logger.exception(f"[{self.guild.name}] _playback_finished 처리 중 예외: {e}")
         finally:
-            self.current = None
+            if self.voice_client and not self.voice_client.is_playing():
+                self.current = None
+            else:
+                logger.warning(f"[{self.guild.name}] Warning: after callback triggered while still playing. Skipping self.current reset.")
             self.next.set()
 
 
