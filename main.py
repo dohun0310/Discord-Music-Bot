@@ -89,12 +89,10 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player: Musi
         return
 
     added_count = 0
-    is_playlist = False
     playlist_title = "알 수 없는 플레이리스트"
 
     try:
         if isinstance(data, dict) and data.get("type") == "playlist":
-            is_playlist = True
             playlist_title = data.get('title', playlist_title)
             player.current_playlist_url = data.get("original_url")
             player.next_playlist_index = data.get("next_start_index", 1)
@@ -190,6 +188,8 @@ async def on_ready():
 async def 재생(interaction: discord.Interaction, query: str):
     await interaction.response.defer(ephemeral=False, thinking=True)
 
+    is_playlist_url = "list=" in query
+
     player = await get_player(interaction)
     if player is None:
         logger.warning(f"[{interaction.guild.name}] 플레이어 준비 실패 (get_player 반환 None).")
@@ -198,7 +198,11 @@ async def 재생(interaction: discord.Interaction, query: str):
     loop = bot.loop
     try:
         logger.info(f"[{interaction.guild.name}] YTDL 정보 검색 시작: '{query}'")
-        data = await YTDLSource.create_source(query, loop=loop)
+        data = await YTDLSource.create_source(
+            query,
+            loop=loop,
+            noplaylist=not is_playlist_url
+        )
     except yt_dlp.utils.DownloadError as e:
         logger.warning(f"[{interaction.guild.name}] YTDL DownloadError for '{query}': {e}")
 
