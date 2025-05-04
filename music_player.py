@@ -35,7 +35,6 @@ class MusicPlayer:
         self.loading_next_batch: bool = False
         self.playlist_requester: Optional[str] = None
 
-        self.player_task = self.bot.loop.create_task(self.player_loop())
         logger.info(f"[{self.guild.name}] MusicPlayer 초기화 및 player_loop 시작됨.")
 
     def get_queue_items(self) -> List[discord.FFmpegPCMAudio]:
