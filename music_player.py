@@ -153,6 +153,8 @@ class MusicPlayer:
                     self.bot.loop.call_soon_threadsafe(self.next.set)
 
                 await self.next.wait()
+                while self.voice_client.is_playing() or self.current is not None:
+                    await asyncio.sleep(0.2)
 
     def _playback_finished(self, error):
         if error:
