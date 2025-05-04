@@ -39,7 +39,19 @@ class MusicPlayer:
         logger.info(f"[{self.guild.name}] MusicPlayer 초기화 및 player_loop 시작됨.")
 
     def get_queue_items(self) -> List[discord.FFmpegPCMAudio]:
-        return list(self.queue._queue)
+        items: List[discord.FFmpegPCMAudio] = []
+
+        for _ in range(self.queue.qsize()):
+            try:
+                entry = self.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            else:
+                items.append(entry)
+
+        for entry in items:
+            self.queue.put_nowait(entry)
+            return items
 
     async def _load_next_playlist_batch(self):
         if not self.current_playlist_url or self.loading_next_batch:
