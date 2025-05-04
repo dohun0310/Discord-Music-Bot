@@ -265,7 +265,7 @@ async def 대기열(interaction: discord.Interaction):
 
 @bot.tree.command(name="삭제", description="대기열에서 지정한 순번의 곡을 제거합니다.")
 @app_commands.describe(position="제거할 곡의 순번 (1부터 시작)")
-async def 삭제(interaction: discord.Interaction, 순번: app_commands.Range[int, 1]):
+async def 삭제(interaction: discord.Interaction, position: app_commands.Range[int, 1]):
     player = bot.music_players.get(interaction.guild.id)
     if player is None or not player.voice_client or not player.voice_client.is_connected():
         await interaction.response.send_message(embed=make_embed("🚫 봇이 음성 채널에 없거나 재생 중이 아닙니다."), ephemeral=True)
@@ -278,12 +278,12 @@ async def 삭제(interaction: discord.Interaction, 순번: app_commands.Range[in
     if not queue_list:
         await interaction.followup.send(embed=make_embed("📭 대기열이 비어있습니다."))
         return
-    if 순번 > len(queue_list):
+    if position > len(queue_list):
         await interaction.followup.send(embed=make_embed(f"❗ 유효하지 않은 순번입니다. (최대 {len(queue_list)})"))
         return
 
     try:
-        removed_song = queue_list.pop(순번 - 1)
+        removed_song = queue_list.pop(position - 1)
 
         while not player.queue.empty():
             try: player.queue.get_nowait()
@@ -292,8 +292,8 @@ async def 삭제(interaction: discord.Interaction, 순번: app_commands.Range[in
         for song in queue_list:
             await player.queue.put(song)
 
-        logger.info(f"[{interaction.guild.name}] 대기열에서 곡 제거: {순번}. {removed_song.title}, 요청자: {interaction.user.name}")
-        await interaction.followup.send(embed=make_embed(f"🗑️ 제거됨 (#{순번}): **{removed_song.title}**"))
+        logger.info(f"[{interaction.guild.name}] 대기열에서 곡 제거: {position}. {removed_song.title}, 요청자: {interaction.user.name}")
+        await interaction.followup.send(embed=make_embed(f"🗑️ 제거됨 (#{position}): **{removed_song.title}**"))
     except IndexError:
         await interaction.followup.send(embed=make_embed("❗ 곡을 제거하는 중 오류가 발생했습니다. (인덱스 오류)"))
     except Exception as e:
