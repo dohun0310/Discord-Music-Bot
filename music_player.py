@@ -160,10 +160,9 @@ class MusicPlayer:
         if error:
             logger.error(f"[{self.guild.name}] 재생 중 오류 발생 (after callback): {error}")
             asyncio.run_coroutine_threadsafe(self.text_channel.send(embed=make_embed(f"⚠️ 재생 중 오류: {error}")), self.bot.loop)
+            self.current = None
         else:
             logger.info(f"[{self.guild.name}] 곡 재생 완료: {getattr(self.current, 'title', '알 수 없는 곡')}")
-
-        self.current = None
         self.next.set()
 
 
