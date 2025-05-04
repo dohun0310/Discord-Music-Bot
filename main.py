@@ -171,6 +171,22 @@ async def 스킵(interaction: discord.Interaction):
     else:
         await send_temp(interaction, make_embed("🚫 재생 중인 곡이 없습니다."))
 
+@bot.tree.command(name="정지", description="현재 재생 중인 곡을 정지하고 대기열을 초기화합니다.")
+async def 정지(interaction: discord.Interaction):
+    channel = await get_voice_channel(interaction)
+    if not channel:
+        return
+    await interaction.response.defer(ephemeral=False)
+    player = await get_player(interaction)
+    if player is None:
+        return
+    player.queue = asyncio.Queue()
+    if player.voice_client.is_playing():
+        player.voice_client.stop()
+        await send_temp(interaction, make_embed("⏹️ 현재 곡을 정지하고 대기열을 초기화했습니다."))
+    else:
+        await send_temp(interaction, make_embed("🚫 재생 중인 곡이 없습니다."))
+
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
     if member == bot.user:
