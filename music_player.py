@@ -125,7 +125,7 @@ class MusicPlayer:
                     logger.info(f"[{self.guild.name}] 60초 타이머 중 유저 재입장. 재생 계속.")
 
             try:
-                self.current = await asyncio.wait_for(self.queue.get(), timeout=300)
+                next_song = await asyncio.wait_for(self.queue.get(), timeout=300)
             except asyncio.TimeoutError:
                 logger.info(f"[{self.guild.name}] 300초 동안 대기열에 새 곡이 없어 연결을 종료합니다.")
                 await self.text_channel.send(embed=make_embed("🎵 대기열이 오랫동안 비어 연결을 종료합니다."))
@@ -135,11 +135,12 @@ class MusicPlayer:
                 logger.info(f"[{self.guild.name}] player_loop 태스크 취소됨.")
                 return
 
-            if self.current:
-                self.start_time = self.bot.loop.time()
-                logger.info(f"[{self.guild.name}] 다음 곡 재생 시작: {self.current.title}")
+            if next_song:
+                logger.info(f"[{self.guild.name}] 다음 곡 재생 시작: {getattr(next_song, 'title', '알 수 없는 곡')}")
                 try:
-                    self.voice_client.play(self.current, after=lambda e: self.bot.loop.call_soon_threadsafe(self._playback_finished, e))
+                    self.voice_client.play(next_song, after=lambda e: self.bot.loop.call_soon_threadsafe(self._playback_finished, e))
+                    self.current = next_song
+                    self.start_time = self.bot.loop.time()
                     await self.text_channel.send(embed=self.build_now_playing_embed())
                 except discord.ClientException as e:
                     logger.error(f"[{self.guild.name}] 음원 재생 실패 (ClientException): {e}")
