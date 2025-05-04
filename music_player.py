@@ -101,6 +101,11 @@ class MusicPlayer:
         while True:
             self.next.clear()
 
+            if self.voice_client.is_playing():
+                logger.debug(f"[{self.guild.name}] 이미 곡이 재생 중입니다. 현재 곡 종료 대기 중...")
+                await self.next.wait()
+                continue
+
             LAZY_LOAD_THRESHOLD = 3
             if self.queue.qsize() < LAZY_LOAD_THRESHOLD and self.current_playlist_url and not self.loading_next_batch:
                 asyncio.create_task(self._load_next_playlist_batch())
