@@ -81,7 +81,7 @@ async def get_player(interaction: discord.Interaction) -> Optional[MusicPlayer]:
         return None
 
 
-async def process_ytdl_data(interaction: discord.Interaction, data, player: MusicPlayer):
+async def process_ytdl_data(interaction: discord.Interaction, data, player: MusicPlayer, is_playlist: bool):
     requester_mention = interaction.user.mention
 
     if data is None:
@@ -92,7 +92,7 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player: Musi
     playlist_title = "알 수 없는 플레이리스트"
 
     try:
-        if isinstance(data, dict) and data.get("type") == "playlist":
+        if isinstance(data, dict) and is_playlist:
             playlist_title = data.get('title', playlist_title)
             player.current_playlist_url = data.get("original_url")
             player.next_playlist_index = data.get("next_start_index", 1)
@@ -135,7 +135,7 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player: Musi
             msg = f"✅ 플레이리스트 '**{playlist_title}**'의 첫 {added_count}곡을 추가했습니다. 나머지는 재생 시 자동으로 로드됩니다."
             await interaction.followup.send(embed=make_embed(msg))
 
-        elif isinstance(data, dict) and data.get("type") != "playlist":
+        elif isinstance(data, dict) and not is_playlist:
             if not all(key in data for key in ("url", "title", "webpage_url")):
                 logger.warning(f"[{interaction.guild.name}] 단일 곡 정보 키 누락: {data.get('title')}")
                 await interaction.followup.send(embed=make_embed("❗ 유효한 음악 정보를 찾지 못했습니다. (키 누락)"))
@@ -200,8 +200,7 @@ async def 재생(interaction: discord.Interaction, query: str):
         logger.info(f"[{interaction.guild.name}] YTDL 정보 검색 시작: '{query}'")
         data = await YTDLSource.create_source(
             query,
-            loop=loop,
-            noplaylist=not is_playlist_url
+            loop=loop
         )
     except yt_dlp.utils.DownloadError as e:
         logger.warning(f"[{interaction.guild.name}] YTDL DownloadError for '{query}': {e}")
@@ -223,7 +222,7 @@ async def 재생(interaction: discord.Interaction, query: str):
         await interaction.followup.send(embed=make_embed(f"❗ 음악 정보를 가져오는 중 오류 발생: {e}"))
         return
 
-    await process_ytdl_data(interaction, data, player)
+    await process_ytdl_data(interaction, data, player, is_playlist_url)
 
 
 @bot.tree.command(name="대기열", description="현재 재생 대기열을 확인합니다.")
