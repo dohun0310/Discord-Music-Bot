@@ -341,6 +341,8 @@ async def 현재곡(interaction: discord.Interaction):
         await interaction.response.send_message(embed=make_embed("🚫 현재 재생 중인 곡이 없습니다."), ephemeral=True)
         return
 
+    await interaction.response.defer(ephemeral=False)
+
     embed = player.build_now_playing_embed()
 
     playback_time = player.get_playback_time()
@@ -349,7 +351,7 @@ async def 현재곡(interaction: discord.Interaction):
         bar = '▬' * progress + '🔘' + '▬' * (20 - progress -1)
         embed.add_field(name="진행률", value=f"`{format_time(playback_time)} / {format_time(player.current.duration)}`\n`{bar}`", inline=False)
 
-    await interaction.response.send_message(embed=embed)
+    await interaction.followup.send(embed=embed)
 
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
