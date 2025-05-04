@@ -229,7 +229,7 @@ async def 대기열(interaction: discord.Interaction):
     current_msg = "없음"
     if player.current:
         current_duration_str = f" ({format_time(player.current.duration)})" if getattr(player.current, 'duration', None) else ""
-        current_msg = f"[**{player.current.title}**]({getattr(player.current, 'webpage_url', '')}){current_duration_str} - 요청: {player.current.requester}"
+        current_msg = f"[**{player.current.title}**]({getattr(player.current, 'webpage_url', '')}){current_duration_str} - {player.current.requester}"
     embed.add_field(name="🎵 현재 재생 중", value=current_msg, inline=False)
 
     if not queue_items:
@@ -240,7 +240,7 @@ async def 대기열(interaction: discord.Interaction):
         display_count = min(len(queue_items), 10)
         for i, song in enumerate(queue_items[:display_count], 1):
             duration_str = f" ({format_time(song.duration)})" if getattr(song, 'duration', None) else ""
-            queue_list_str += f"{i}. [**{song.title}**]({getattr(song, 'webpage_url', '')}){duration_str} - 요청: {song.requester}\n"
+            queue_list_str += f"{i}. [**{song.title}**]({getattr(song, 'webpage_url', '')}){duration_str} - {song.requester}\n"
 
         if len(queue_items) > display_count:
             queue_list_str += f"\n... 외 {len(queue_items) - display_count}곡 더 있음"
