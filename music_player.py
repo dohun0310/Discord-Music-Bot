@@ -158,13 +158,20 @@ class MusicPlayer:
                     await asyncio.sleep(0.2)
 
     def _playback_finished(self, error):
-        if error:
-            logger.error(f"[{self.guild.name}] 재생 중 오류 발생 (after callback): {error}")
-            asyncio.run_coroutine_threadsafe(self.text_channel.send(embed=make_embed(f"⚠️ 재생 중 오류: {error}")), self.bot.loop)
+        try:
+            if error:
+                logger.error(f"[{self.guild.name}] 재생 중 오류 발생 (after callback): {error}")
+                asyncio.run_coroutine_threadsafe(
+                    self.text_channel.send(embed=make_embed(f"⚠️ 재생 중 오류: {error}")),
+                    self.bot.loop,
+                )
+            else:
+                logger.info(f"[{self.guild.name}] 곡 재생 완료: {getattr(self.current, 'title', '알 수 없는 곡')}")
+        except Exception as e:
+            logger.exception(f"[{self.guild.name}] _playback_finished 처리 중 예외: {e}")
+        finally:
             self.current = None
-        else:
-            logger.info(f"[{self.guild.name}] 곡 재생 완료: {getattr(self.current, 'title', '알 수 없는 곡')}")
-        self.next.set()
+            self.next.set()
 
 
     def build_now_playing_embed(self) -> discord.Embed:
