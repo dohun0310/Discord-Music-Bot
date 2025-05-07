@@ -7,7 +7,7 @@ import logging
 import yt_dlp
 
 from config import BOT_TOKEN, FFMPEG_OPTIONS
-from utils import make_embed
+from utils import make_embed, is_valid_entry, create_ffmpeg_source
 from ytdl_source import YTDLSource
 from music_player import MusicPlayer, format_time
 
@@ -109,16 +109,12 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player: Musi
 
             sources_to_add = []
             for entry in initial_entries:
-                if not all(key in entry for key in ("url", "title", "webpage_url")):
+                if not is_valid_entry(entry):
                     logger.warning(f"[{interaction.guild.name}] 플레이리스트 항목 누락된 키: {entry.get('title')}")
                     continue
                 try:
-                    source = discord.FFmpegPCMAudio(entry['url'], **FFMPEG_OPTIONS)
-                    source.title = entry['title']
-                    source.webpage_url = entry.get('webpage_url', '')
-                    source.duration = entry.get('duration')
-                    source.requester = requester_mention
-                    sources_to_add.append(source)
+                    src = create_ffmpeg_source(entry, requester_mention, FFMPEG_OPTIONS)
+                    sources_to_add.append(src)
                     added_count += 1
                 except Exception as e:
                     logger.error(f"[{interaction.guild.name}] FFmpegPCMAudio 생성 실패 (플레이리스트): {entry.get('title')}, 오류: {e}")
@@ -136,11 +132,9 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player: Musi
             await interaction.followup.send(embed=make_embed(msg))
 
         elif isinstance(data, dict) and not is_playlist:
-            source = discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS)
-            source.title = data['title']
-            source.webpage_url = data['webpage_url']
-            source.duration = data.get('duration')
-            source.requester = requester_mention
+            if not is_valid_entry(data):
+                raise ValueError("단일 곡 데이터 누락된 필드")
+            source = create_ffmpeg_source(data, requester_mention, FFMPEG_OPTIONS)
             await player.queue.put(source)
             added_count = 1
             logger.info(f"[{interaction.guild.name}] 단일 곡 추가: '{source.title}', 요청자: {interaction.user.name}")
