@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Union, List, Dict, Any
 from config import YTDL_OPTIONS
 
-yt_dlp.utils.bug_reports_message = lambda: ""
+yt_dlp.utils.bug_reports_message = lambda *args, **kwargs: ""
 logger = logging.getLogger('discord.bot.ytdl')
 PLAYLIST_BATCH_SIZE = 10
 
