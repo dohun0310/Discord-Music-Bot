@@ -5,6 +5,7 @@ import asyncio
 from typing import Optional
 import logging
 import yt_dlp
+from datetime import datetime
 
 from config import BOT_TOKEN, FFMPEG_OPTIONS
 from utils import make_embed, is_valid_entry, create_ffmpeg_source
@@ -14,7 +15,6 @@ from music_player import MusicPlayer, format_time
 log_format = '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
 logging.basicConfig(level=logging.INFO, format=log_format)
 logging.getLogger('discord').setLevel(logging.WARNING)
-player_logger = logging.getLogger('discord.bot.player')
 logger = logging.getLogger('discord.bot.main')
 
 intents = discord.Intents.default()
@@ -81,7 +81,8 @@ async def get_player(interaction: discord.Interaction) -> Optional[MusicPlayer]:
         return None
 
 
-async def process_ytdl_data(interaction: discord.Interaction, data, player: MusicPlayer, is_playlist: bool):
+async def process_ytdl_data(interaction: discord.Interaction, data, player: MusicPlayer, is_playlist: bool) -> None:
+    """YTDL에서 받아온 데이터를 처리하여 플레이어 대기열에 추가"""
     requester_mention = interaction.user.mention
 
     if data is None:
@@ -92,7 +93,7 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player: Musi
     playlist_title = "알 수 없는 플레이리스트"
 
     try:
-        if isinstance(data, dict) and is_playlist:
+        if is_playlist and isinstance(data, dict):
             playlist_title = data.get('title', playlist_title)
             player.current_playlist_url = data.get("original_url")
             player.next_playlist_index = data.get("next_start_index", 1)
@@ -131,7 +132,8 @@ async def process_ytdl_data(interaction: discord.Interaction, data, player: Musi
             msg = f"✅ 플레이리스트 '**{playlist_title}**'의 첫 {added_count}곡을 추가했습니다. 나머지는 재생 시 자동으로 로드됩니다."
             await interaction.followup.send(embed=make_embed(msg))
 
-        elif isinstance(data, dict) and not is_playlist:
+        elif isinstance(data, dict):
+            # 단일 곡 처리
             if not is_valid_entry(data):
                 raise ValueError("단일 곡 데이터 누락된 필드")
             source = create_ffmpeg_source(data, requester_mention, FFMPEG_OPTIONS)
@@ -173,8 +175,6 @@ async def on_ready():
 async def 재생(interaction: discord.Interaction, query: str):
     await interaction.response.defer(ephemeral=False, thinking=True)
 
-    is_playlist_url = "list=" in query
-
     player = await get_player(interaction)
     if player is None:
         logger.warning(f"[{interaction.guild.name}] 플레이어 준비 실패 (get_player 반환 None).")
@@ -187,9 +187,10 @@ async def 재생(interaction: discord.Interaction, query: str):
     except yt_dlp.utils.DownloadError as e:
         logger.warning(f"[{interaction.guild.name}] YTDL DownloadError for '{query}': {e}")
 
-        if "is not available" in str(e) or "Private video" in str(e):
+        error_str = str(e)
+        if "is not available" in error_str or "Private video" in error_str:
              msg = "❗ 해당 영상을 찾을 수 없거나 비공개 영상입니다."
-        elif "Unsupported URL" in str(e):
+        elif "Unsupported URL" in error_str:
              msg = "❗ 지원하지 않는 URL 형식입니다."
         else:
             msg = f"❗ 영상을 가져오는 중 오류 발생: {e}"
@@ -204,7 +205,9 @@ async def 재생(interaction: discord.Interaction, query: str):
         await interaction.followup.send(embed=make_embed(f"❗ 음악 정보를 가져오는 중 오류 발생: {e}"))
         return
 
-    await process_ytdl_data(interaction, data, player, is_playlist_url)
+    # data에서 type 필드를 확인하여 플레이리스트 여부 판단
+    is_playlist = isinstance(data, dict) and data.get("type") == "playlist"
+    await process_ytdl_data(interaction, data, player, is_playlist)
 
 
 @bot.tree.command(name="대기열", description="현재 재생 대기열을 확인합니다.")
@@ -393,7 +396,6 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     except Exception as e:
         logger.error(f"[{interaction.guild_id}] 오류 메시지 전송 중 예외 발생: {e}", exc_info=True)
 
-from datetime import datetime
 
 if __name__ == "__main__":
     if not BOT_TOKEN:
