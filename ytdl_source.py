@@ -1,4 +1,5 @@
 import asyncio
+import atexit
 import yt_dlp
 import logging
 from typing import Optional, Union, List, Dict, Any
@@ -10,6 +11,9 @@ logger = logging.getLogger('discord.bot.ytdl')
 PLAYLIST_BATCH_SIZE = 10
 
 _ytdl_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ytdl")
+
+# 프로그램 종료 시 executor 정리
+atexit.register(_ytdl_executor.shutdown, wait=False)
 
 class YTDLSource:
     @staticmethod
@@ -57,12 +61,10 @@ class YTDLSource:
             )
         except yt_dlp.utils.DownloadError as e:
             logger.warning(f"YTDL DownloadError for query '{query}': {e}")
-            if "Private video" in str(e) or "Video unavailable" in str(e):
-                return None
-            return None
+            raise  # main.py에서 적절히 처리하도록 다시 던짐
         except Exception as e:
             logger.error(f"Unexpected error during YTDL extraction for query '{query}': {e}", exc_info=True)
-            return None
+            raise
 
         if data is None:
             logger.warning(f"No data returned from YTDL for query '{query}'")
