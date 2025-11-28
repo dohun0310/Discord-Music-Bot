@@ -1,5 +1,4 @@
 import discord
-import asyncio
 from typing import Dict, Any
 
 def is_valid_entry(entry: Dict[str, Any]) -> bool:
@@ -17,10 +16,6 @@ def create_ffmpeg_source(
     source.requester = requester
     return source
 
-def make_embed(msg: str) -> discord.Embed:
-    return discord.Embed(description=msg, color=discord.Color.purple())
-
-async def send_temp(interaction: discord.Interaction, embed: discord.Embed, delay: int = 10) -> None:
-    msg = await interaction.followup.send(embed=embed, wait=True)
-    await asyncio.sleep(delay)
-    await msg.delete()
+def make_embed(msg: str, color: discord.Color = discord.Color.purple()) -> discord.Embed:
+    """간단한 설명 메시지용 임베드 생성"""
+    return discord.Embed(description=msg, color=color)
