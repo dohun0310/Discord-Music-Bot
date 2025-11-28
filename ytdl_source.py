@@ -2,11 +2,14 @@ import asyncio
 import yt_dlp
 import logging
 from typing import Optional, Union, List, Dict, Any
+from concurrent.futures import ThreadPoolExecutor
 from config import YTDL_OPTIONS
 
 yt_dlp.utils.bug_reports_message = lambda *args, **kwargs: ""
 logger = logging.getLogger('discord.bot.ytdl')
 PLAYLIST_BATCH_SIZE = 10
+
+_ytdl_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ytdl")
 
 class YTDLSource:
     @staticmethod
@@ -49,7 +52,7 @@ class YTDLSource:
             local_ytdl = yt_dlp.YoutubeDL(current_opts)
 
             data = await loop.run_in_executor(
-                None,
+                _ytdl_executor,
                 lambda: local_ytdl.extract_info(query, download=False)
             )
         except yt_dlp.utils.DownloadError as e:
