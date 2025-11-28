@@ -18,19 +18,27 @@ atexit.register(_ytdl_executor.shutdown, wait=False)
 class YTDLSource:
     @staticmethod
     def _process_entry(entry: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """YTDL 항목을 처리하여 필요한 필드만 추출"""
         if not entry:
+            logger.debug("_process_entry: entry가 None 또는 빈 값")
             return None
 
+        entry_title = entry.get('title', 'N/A')
+        entry_id = entry.get('id', 'N/A')
+        
         if not all(key in entry for key in ("url", "title", "webpage_url")):
-            logger.warning(f"항목 처리 중 필수 키 누락: title='{entry.get('title', 'N/A')}', id='{entry.get('id', 'N/A')}'")
+            logger.warning(f"항목 처리 중 필수 키 누락: title='{entry_title}', id='{entry_id}'")
+            logger.debug(f"항목 키 목록: {list(entry.keys())}")
             return None
 
-        return {
+        result = {
             "webpage_url": entry["webpage_url"],
             "title": entry["title"],
             "url": entry["url"],
             "duration": entry.get("duration")
         }
+        logger.debug(f"_process_entry 성공: title='{entry_title}', duration={result['duration']}")
+        return result
 
     @classmethod
     async def create_source(
@@ -41,8 +49,11 @@ class YTDLSource:
         get_next_batch: bool = False,
         playlist_start_index: int = 1
     ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
+        logger.info(f"create_source 호출: query='{query[:100]}...', get_next_batch={get_next_batch}, playlist_start_index={playlist_start_index}")
+        
         current_opts = YTDL_OPTIONS.copy()
         is_search = not (query.startswith("http://") or query.startswith("https://"))
+        logger.debug(f"is_search={is_search}")
 
         if get_next_batch:
             playlist_end_index = playlist_start_index + PLAYLIST_BATCH_SIZE - 1
@@ -53,12 +64,15 @@ class YTDLSource:
             logger.debug(f"Initial fetch: items 1-{PLAYLIST_BATCH_SIZE} (if playlist)")
 
         try:
+            logger.debug(f"YoutubeDL 인스턴스 생성 중... YTDL_OPTIONS keys: {list(current_opts.keys())}")
             local_ytdl = yt_dlp.YoutubeDL(current_opts)
 
+            logger.debug(f"extract_info 호출 시작: query='{query[:50]}...'")
             data = await loop.run_in_executor(
                 _ytdl_executor,
                 lambda: local_ytdl.extract_info(query, download=False)
             )
+            logger.debug(f"extract_info 완료. data is None: {data is None}")
         except yt_dlp.utils.DownloadError as e:
             logger.warning(f"YTDL DownloadError for query '{query}': {e}")
             raise  # main.py에서 적절히 처리하도록 다시 던짐
@@ -70,9 +84,17 @@ class YTDLSource:
             logger.warning(f"No data returned from YTDL for query '{query}'")
             return None
 
+        # 결과 타입 확인
+        has_entries = "entries" in data
+        has_url = "url" in data
+        data_type = data.get('_type', 'unknown')
+        logger.debug(f"YTDL 결과: has_entries={has_entries}, has_url={has_url}, _type={data_type}, title='{data.get('title', 'N/A')}'")
+
         if not get_next_batch and is_search and "entries" in data:
+            logger.debug(f"검색 결과 처리 모드. entries 수: {len(data['entries'])}")
             processed = [cls._process_entry(entry) for entry in data["entries"] if entry]
             valid = [e for e in processed if e]
+            logger.debug(f"검색 결과 처리 완료. 유효한 항목: {len(valid)}개")
             if valid:
                 first = valid[0]
                 logger.info(f"검색어 '{query}' 결과 처리: 첫 곡 반환 '{first['title']}'")
@@ -84,9 +106,11 @@ class YTDLSource:
             playlist_title = data.get('title', '알 수 없는 플레이리스트')
             original_url = data.get('webpage_url') or data.get('original_url') or query
             entries = data["entries"]
+            logger.debug(f"플레이리스트 처리 모드: title='{playlist_title}', entries 수: {len(entries) if entries else 0}")
 
             processed_entries = [cls._process_entry(entry) for entry in entries if entry]
             valid_entries = [entry for entry in processed_entries if entry is not None]
+            logger.debug(f"플레이리스트 항목 처리 완료. 유효한 항목: {len(valid_entries)}개")
 
             if not valid_entries:
                  logger.warning(f"플레이리스트 '{playlist_title}'에서 유효한 항목을 찾지 못함 (범위: {current_opts.get('playlist_items')}).")

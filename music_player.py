@@ -36,15 +36,20 @@ class MusicPlayer:
         self.loading_next_batch: bool = False
         self.playlist_requester: Optional[str] = None
 
-        logger.info(f"[{self.guild.name}] MusicPlayer 초기화 및 player_loop 시작됨.")
+        logger.info(f"[{self.guild.name}] MusicPlayer 초기화 완료")
+        logger.debug(f"[{self.guild.name}] MusicPlayer 상세 - text_channel: {text_channel.name}, voice_channel: {voice_client.channel.name}")
 
     def get_queue_items(self) -> List[Any]:
         """Queue의 현재 항목들을 리스트로 반환"""
-        return list(self.queue._queue)
+        items = list(self.queue._queue)
+        logger.debug(f"[{self.guild.name}] get_queue_items 호출: {len(items)}개 항목")
+        return items
 
     async def _load_next_playlist_batch(self) -> None:
         """Lazy loading으로 플레이리스트의 다음 배치를 로드"""
+        logger.debug(f"[{self.guild.name}] _load_next_playlist_batch 호출. current_playlist_url: {self.current_playlist_url}, loading: {self.loading_next_batch}")
         if not self.current_playlist_url or self.loading_next_batch:
+            logger.debug(f"[{self.guild.name}] _load_next_playlist_batch 스킵 (조건 불충족)")
             return
 
         self.loading_next_batch = True
@@ -95,24 +100,30 @@ class MusicPlayer:
     async def player_loop(self) -> None:
         """ 반복적으로 대기열에서 곡을 가져와 재생"""
         await self.bot.wait_until_ready()
-        logger.info(f"[{self.guild.name}] player_loop 시작됨.")
+        logger.info(f"[{self.guild.name}] player_loop 시작됨. 대기열 크기: {self.queue.qsize()}")
 
         while True:
             self.next.clear()
+            logger.debug(f"[{self.guild.name}] player_loop 반복 시작. 대기열: {self.queue.qsize()}개, 현재곡: {getattr(self.current, 'title', None)}")
 
             # Lazy loading 트리거
             LAZY_LOAD_THRESHOLD = 3
-            if self.queue.qsize() < LAZY_LOAD_THRESHOLD and self.current_playlist_url and not self.loading_next_batch:
+            queue_size = self.queue.qsize()
+            if queue_size < LAZY_LOAD_THRESHOLD and self.current_playlist_url and not self.loading_next_batch:
+                logger.debug(f"[{self.guild.name}] Lazy loading 트리거: 대기열 {queue_size}개 < 임계값 {LAZY_LOAD_THRESHOLD}")
                 asyncio.create_task(self._load_next_playlist_batch())
 
             # 음성 클라이언트 연결 상태 확인
-            if self.voice_client is None or not self.voice_client.is_connected():
+            vc_connected = self.voice_client is not None and self.voice_client.is_connected()
+            logger.debug(f"[{self.guild.name}] 음성 클라이언트 상태: voice_client={self.voice_client is not None}, connected={vc_connected}")
+            if not vc_connected:
                 logger.warning(f"[{self.guild.name}] player_loop: 음성 클라이언트 연결 끊김. 루프 종료.")
                 await self.destroy(notify=False)
                 return
 
             # 채널에 아무도 없을 때 타이머
             channel_members = [m for m in self.voice_client.channel.members if not m.bot]
+            logger.debug(f"[{self.guild.name}] 음성 채널 멤버 수: {len(channel_members)}명 (봇 제외)")
             if not channel_members:
                 logger.info(f"[{self.guild.name}] 음성 채널에 아무도 없어 60초 후 연결 종료 타이머 시작.")
                 await self.text_channel.send(embed=make_embed("💤 음성 채널에 아무도 없습니다. 60초 후 연결을 종료합니다."))
@@ -132,7 +143,9 @@ class MusicPlayer:
                     logger.info(f"[{self.guild.name}] 60초 타이머 중 유저 재입장. 재생 계속.")
 
             try:
+                logger.debug(f"[{self.guild.name}] 대기열에서 다음 곡 대기 중... (timeout=300초)")
                 next_song = await asyncio.wait_for(self.queue.get(), timeout=300)
+                logger.debug(f"[{self.guild.name}] 대기열에서 곡 가져옴: {getattr(next_song, 'title', 'N/A')}")
             except asyncio.TimeoutError:
                 logger.info(f"[{self.guild.name}] 300초 동안 대기열에 새 곡이 없어 연결을 종료합니다.")
                 await self.text_channel.send(embed=make_embed("🎵 대기열이 오랫동안 비어 연결을 종료합니다."))
@@ -143,7 +156,11 @@ class MusicPlayer:
                 return
 
             if next_song:
-                logger.info(f"[{self.guild.name}] 다음 곡 재생 시작: {getattr(next_song, 'title', '알 수 없는 곡')}")
+                song_title = getattr(next_song, 'title', '알 수 없는 곡')
+                song_duration = getattr(next_song, 'duration', None)
+                song_url = getattr(next_song, 'url', 'N/A')[:50]  # URL 일부만 로그
+                logger.info(f"[{self.guild.name}] 다음 곡 재생 시작: '{song_title}'")
+                logger.debug(f"[{self.guild.name}] 곡 상세 - 길이: {format_time(song_duration)}, URL: {song_url}...")
                 self.current = next_song
                 try:
                     self.voice_client.play(next_song, after=lambda e: self.bot.loop.call_soon_threadsafe(self._playback_finished, e))
@@ -166,6 +183,9 @@ class MusicPlayer:
                     await asyncio.sleep(0.2)
 
     def _playback_finished(self, error):
+        """FFmpeg 재생 완료 콜백"""
+        song_title = getattr(self.current, 'title', '알 수 없는 곡')
+        logger.debug(f"[{self.guild.name}] _playback_finished 호출됨. 곡: '{song_title}', 오류: {error}")
         try:
             if error:
                 logger.error(f"[{self.guild.name}] 재생 중 오류 발생 (after callback): {error}")
@@ -229,7 +249,8 @@ class MusicPlayer:
     async def destroy(self, notify: bool = True) -> None:
         """플레이어를 정리하고 음성 연결을 종료"""
         guild_name = self.guild.name
-        logger.info(f"[{guild_name}] 플레이어 파괴 시작...")
+        logger.info(f"[{guild_name}] 플레이어 파괴 시작... (notify={notify})")
+        logger.debug(f"[{guild_name}] 플레이어 상태 - voice_client: {self.voice_client is not None}, queue_size: {self.queue.qsize()}, current: {getattr(self.current, 'title', None)}")
 
         if self.voice_client and self.voice_client.is_playing():
             self.voice_client.stop()

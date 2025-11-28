@@ -12,9 +12,12 @@ from utils import make_embed, is_valid_entry, create_ffmpeg_source
 from ytdl_source import YTDLSource
 from music_player import MusicPlayer, format_time
 
-log_format = '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
-logging.basicConfig(level=logging.INFO, format=log_format)
+log_format = '[%(asctime)s] [%(levelname)s] [%(name)s] [%(funcName)s:%(lineno)d] %(message)s'
+logging.basicConfig(level=logging.DEBUG, format=log_format)
 logging.getLogger('discord').setLevel(logging.WARNING)
+logging.getLogger('discord.gateway').setLevel(logging.WARNING)
+logging.getLogger('discord.client').setLevel(logging.WARNING)
+logging.getLogger('discord.http').setLevel(logging.WARNING)
 logger = logging.getLogger('discord.bot.main')
 
 intents = discord.Intents.default()
@@ -26,16 +29,21 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 bot.music_players = {}
 
 async def get_voice_channel(interaction: discord.Interaction) -> Optional[discord.VoiceChannel]:
+    logger.debug(f"[{interaction.guild.name}] get_voice_channel 호출됨. 사용자: {interaction.user.name}")
     if not interaction.user.voice or not interaction.user.voice.channel:
+        logger.debug(f"[{interaction.guild.name}] 사용자 {interaction.user.name}이(가) 음성 채널에 없음")
         await interaction.response.send_message(embed=make_embed("🚫 먼저 음성 채널에 접속해주세요."), ephemeral=True)
         return None
+    logger.debug(f"[{interaction.guild.name}] 사용자 {interaction.user.name}의 음성 채널: {interaction.user.voice.channel.name}")
     return interaction.user.voice.channel
 
 async def get_player(interaction: discord.Interaction) -> Optional[MusicPlayer]:
     guild_id = interaction.guild.id
+    logger.debug(f"[{interaction.guild.name}] get_player 호출됨. Guild ID: {guild_id}")
     player = bot.music_players.get(guild_id)
 
     if player:
+        logger.debug(f"[{interaction.guild.name}] 기존 플레이어 발견. voice_client: {player.voice_client}, connected: {player.voice_client.is_connected() if player.voice_client else False}")
         if not player.voice_client or not player.voice_client.is_connected():
             logger.warning(f"[{interaction.guild.name}] 기존 플레이어의 음성 연결이 끊김. 재연결 시도.")
             channel = await get_voice_channel(interaction)
@@ -173,7 +181,9 @@ async def on_ready():
 @bot.tree.command(name="재생", description="YouTube에서 노래/플레이리스트를 재생합니다 (URL 또는 검색어).")
 @app_commands.describe(query="재생할 노래/플레이리스트의 제목 또는 URL")
 async def 재생(interaction: discord.Interaction, query: str):
+    logger.info(f"[{interaction.guild.name}] /재생 커맨드 실행. 사용자: {interaction.user.name}, 쿼리: '{query}'")
     await interaction.response.defer(ephemeral=False, thinking=True)
+    logger.debug(f"[{interaction.guild.name}] interaction.response.defer() 완료")
 
     player = await get_player(interaction)
     if player is None:
@@ -212,7 +222,9 @@ async def 재생(interaction: discord.Interaction, query: str):
 
 @bot.tree.command(name="대기열", description="현재 재생 대기열을 확인합니다.")
 async def 대기열(interaction: discord.Interaction):
+    logger.info(f"[{interaction.guild.name}] /대기열 커맨드 실행. 사용자: {interaction.user.name}")
     player = bot.music_players.get(interaction.guild.id)
+    logger.debug(f"[{interaction.guild.name}] 플레이어 조회 결과: {player is not None}")
 
     if player is None or not player.voice_client or not player.voice_client.is_connected():
         await interaction.response.send_message(embed=make_embed("🚫 봇이 음성 채널에 없거나 재생 중이 아닙니다."), ephemeral=True)
@@ -254,6 +266,7 @@ async def 대기열(interaction: discord.Interaction):
 @bot.tree.command(name="삭제", description="대기열에서 지정한 순번의 곡을 제거합니다.")
 @app_commands.describe(position="제거할 곡의 순번 (1부터 시작)")
 async def 삭제(interaction: discord.Interaction, position: app_commands.Range[int, 1]):
+    logger.info(f"[{interaction.guild.name}] /삭제 커맨드 실행. 사용자: {interaction.user.name}, 위치: {position}")
     player = bot.music_players.get(interaction.guild.id)
     if player is None or not player.voice_client or not player.voice_client.is_connected():
         await interaction.response.send_message(embed=make_embed("🚫 봇이 음성 채널에 없거나 재생 중이 아닙니다."), ephemeral=True)
@@ -289,8 +302,9 @@ async def 삭제(interaction: discord.Interaction, position: app_commands.Range[
         await interaction.followup.send(embed=make_embed(f"❗ 곡 제거 중 오류 발생: {e}"))
 
 
-@bot.tree.command(name="스킵", description="현재 재생 중인 곡을 건너뜁니다.")
+@bot.tree.command(name="스킵", description="현재 재생 중인 곡을 건너뜙니다.")
 async def 스킵(interaction: discord.Interaction):
+    logger.info(f"[{interaction.guild.name}] /스킵 커맨드 실행. 사용자: {interaction.user.name}")
     player = bot.music_players.get(interaction.guild.id)
     if player is None or not player.voice_client or not player.voice_client.is_connected():
         await interaction.response.send_message(embed=make_embed("🚫 봇이 음성 채널에 없거나 재생 중이 아닙니다."), ephemeral=True)
@@ -307,6 +321,7 @@ async def 스킵(interaction: discord.Interaction):
 
 @bot.tree.command(name="정지", description="음악 재생을 중지하고 봇을 음성 채널에서 내보냅니다.")
 async def 정지(interaction: discord.Interaction):
+    logger.info(f"[{interaction.guild.name}] /정지 커맨드 실행. 사용자: {interaction.user.name}")
     player = bot.music_players.get(interaction.guild.id)
     if player is None or not player.voice_client or not player.voice_client.is_connected():
         await interaction.response.send_message(embed=make_embed("🚫 봇이 음성 채널에 없거나 재생 중이 아닙니다."), ephemeral=True)
@@ -320,6 +335,7 @@ async def 정지(interaction: discord.Interaction):
 
 @bot.tree.command(name="현재곡", description="현재 재생 중인 곡 정보를 표시합니다.")
 async def 현재곡(interaction: discord.Interaction):
+    logger.info(f"[{interaction.guild.name}] /현재곡 커맨드 실행. 사용자: {interaction.user.name}")
     player = bot.music_players.get(interaction.guild.id)
     if player is None or not player.voice_client or not player.voice_client.is_connected():
         await interaction.response.send_message(embed=make_embed("🚫 봇이 음성 채널에 없거나 재생 중이 아닙니다."), ephemeral=True)
@@ -343,6 +359,7 @@ async def 현재곡(interaction: discord.Interaction):
 
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    logger.debug(f"[{member.guild.name}] on_voice_state_update: 멤버={member.name}, before_channel={before.channel}, after_channel={after.channel}")
     if member.id == bot.user.id:
         if before.channel and not after.channel:
             guild_id = member.guild.id
