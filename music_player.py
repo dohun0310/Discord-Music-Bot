@@ -1,7 +1,8 @@
 import asyncio
 import discord
 import logging
-from typing import Optional, List
+from typing import Optional, List, Any
+from discord.ext import commands
 
 from utils import make_embed
 
@@ -19,14 +20,14 @@ def format_time(seconds: Optional[float]) -> str:
         return f"{minutes:02d}:{seconds:02d}"
 
 class MusicPlayer:
-    def __init__(self, guild: discord.Guild, text_channel: discord.TextChannel, voice_client: discord.VoiceClient, bot: discord.ext.commands.Bot):
+    def __init__(self, guild: discord.Guild, text_channel: discord.TextChannel, voice_client: discord.VoiceClient, bot: commands.Bot):
         self.guild = guild
         self.text_channel = text_channel
-        self.voice_client = voice_client
+        self.voice_client: Optional[discord.VoiceClient] = voice_client
         self.bot = bot
-        self.queue = asyncio.Queue()
+        self.queue: asyncio.Queue[Any] = asyncio.Queue()
         self.next = asyncio.Event()
-        self.current: Optional[discord.FFmpegPCMAudio] = None
+        self.current: Optional[Any] = None  # FFmpegPCMAudio with custom attributes
         self.player_task = self.bot.loop.create_task(self.player_loop())
         self.start_time: Optional[float] = None
 
@@ -37,10 +38,12 @@ class MusicPlayer:
 
         logger.info(f"[{self.guild.name}] MusicPlayer 초기화 및 player_loop 시작됨.")
 
-    def get_queue_items(self) -> List[discord.FFmpegPCMAudio]:
+    def get_queue_items(self) -> List[Any]:
+        """Queue의 현재 항목들을 리스트로 반환"""
         return list(self.queue._queue)
 
-    async def _load_next_playlist_batch(self):
+    async def _load_next_playlist_batch(self) -> None:
+        """Lazy loading으로 플레이리스트의 다음 배치를 로드"""
         if not self.current_playlist_url or self.loading_next_batch:
             return
 
@@ -49,6 +52,7 @@ class MusicPlayer:
 
         from ytdl_source import YTDLSource
         from config import FFMPEG_OPTIONS
+        from utils import is_valid_entry, create_ffmpeg_source
 
         try:
             next_entries = await YTDLSource.create_source(
@@ -61,16 +65,11 @@ class MusicPlayer:
             added_count = 0
             if next_entries and isinstance(next_entries, list):
                 for entry in next_entries:
-                    if not all(key in entry for key in ("url", "title", "webpage_url")):
+                    if not is_valid_entry(entry):
                         logger.warning(f"[{self.guild.name}] 자동 로드된 항목 키 누락: {entry.get('title')}")
                         continue
                     try:
-                        source = discord.FFmpegPCMAudio(entry['url'], **FFMPEG_OPTIONS)
-                        source.title = entry['title']
-                        source.webpage_url = entry.get('webpage_url', '')
-                        source.duration = entry.get('duration')
-
-                        source.requester = self.playlist_requester or "자동 로드"
+                        source = create_ffmpeg_source(entry, self.playlist_requester or "자동 로드", FFMPEG_OPTIONS)
                         await self.queue.put(source)
                         added_count += 1
                     except Exception as e:
@@ -93,30 +92,39 @@ class MusicPlayer:
         finally:
             self.loading_next_batch = False
 
-    async def player_loop(self):
+    async def player_loop(self) -> None:
+        """ 반복적으로 대기열에서 곡을 가져와 재생"""
         await self.bot.wait_until_ready()
         logger.info(f"[{self.guild.name}] player_loop 시작됨.")
 
         while True:
             self.next.clear()
 
+            # Lazy loading 트리거
             LAZY_LOAD_THRESHOLD = 3
             if self.queue.qsize() < LAZY_LOAD_THRESHOLD and self.current_playlist_url and not self.loading_next_batch:
                 asyncio.create_task(self._load_next_playlist_batch())
 
-            if not self.voice_client or not self.voice_client.is_connected():
+            # 음성 클라이언트 연결 상태 확인
+            if self.voice_client is None or not self.voice_client.is_connected():
                 logger.warning(f"[{self.guild.name}] player_loop: 음성 클라이언트 연결 끊김. 루프 종료.")
                 await self.destroy(notify=False)
                 return
 
-            if len(self.voice_client.channel.members) <= 1:
+            # 채널에 아무도 없을 때 타이머
+            channel_members = [m for m in self.voice_client.channel.members if not m.bot]
+            if not channel_members:
                 logger.info(f"[{self.guild.name}] 음성 채널에 아무도 없어 60초 후 연결 종료 타이머 시작.")
                 await self.text_channel.send(embed=make_embed("💤 음성 채널에 아무도 없습니다. 60초 후 연결을 종료합니다."))
 
                 await asyncio.sleep(60)
-                if not self.voice_client or not self.voice_client.is_connected():
+                
+                # 타이머 후 다시 상태 확인
+                if self.voice_client is None or not self.voice_client.is_connected():
                     return
-                if len(self.voice_client.channel.members) <= 1:
+                
+                current_members = [m for m in self.voice_client.channel.members if not m.bot]
+                if not current_members:
                     logger.info(f"[{self.guild.name}] 60초 경과, 여전히 혼자이므로 연결 종료.")
                     await self.destroy(notify=False)
                     return
@@ -153,7 +161,8 @@ class MusicPlayer:
                     self.bot.loop.call_soon_threadsafe(self.next.set)
 
                 await self.next.wait()
-                while self.voice_client.is_playing() or self.current is not None:
+                # voice_client가 None이 될 수 있으므로 안전하게 확인
+                while self.voice_client and (self.voice_client.is_playing() or self.current is not None):
                     await asyncio.sleep(0.2)
 
     def _playback_finished(self, error):
@@ -177,6 +186,7 @@ class MusicPlayer:
 
 
     def build_now_playing_embed(self) -> discord.Embed:
+        """현재 재생 중인 곡의 임베드 생성"""
         if not self.current:
             return make_embed("🚫 현재 재생 중인 곡이 없습니다.")
 
@@ -203,12 +213,11 @@ class MusicPlayer:
             return min(elapsed, duration)
         return elapsed
 
-    def clear_queue(self):
+    def clear_queue(self) -> None:
         count = self.queue.qsize()
         while not self.queue.empty():
             try:
                 self.queue.get_nowait()
-                self.queue.task_done()
             except asyncio.QueueEmpty:
                 break
         logger.info(f"[{self.guild.name}] 대기열 비움 ({count}개 항목 제거).")
@@ -217,7 +226,8 @@ class MusicPlayer:
         self.next_playlist_index = 1
         self.loading_next_batch = False
 
-    async def destroy(self, notify: bool = True):
+    async def destroy(self, notify: bool = True) -> None:
+        """플레이어를 정리하고 음성 연결을 종료"""
         guild_name = self.guild.name
         logger.info(f"[{guild_name}] 플레이어 파괴 시작...")
 
