@@ -27,6 +27,29 @@ _ytdl_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ytdl")
 atexit.register(_ytdl_executor.shutdown, wait=False)
 
 
+def _get_best_thumbnail(thumbnails: list[dict[str, Any]]) -> Optional[str]:
+    """
+    썸네일 목록에서 가장 좋은 썸네일 URL을 선택합니다.
+
+    Args:
+        thumbnails: yt-dlp에서 반환된 썸네일 목록
+
+    Returns:
+        최적의 썸네일 URL 또는 None
+    """
+    if not thumbnails:
+        return None
+
+    # 해상도가 높은 순으로 정렬
+    sorted_thumbs = sorted(
+        [t for t in thumbnails if t.get('url')],
+        key=lambda x: (x.get('height', 0) or 0) * (x.get('width', 0) or 0),
+        reverse=True
+    )
+
+    return sorted_thumbs[0]['url'] if sorted_thumbs else None
+
+
 class YTDLSource:
     """
     YouTube-DL 래퍼 클래스
@@ -60,16 +83,26 @@ class YTDLSource:
             )
             return None
 
+        # 썸네일 URL 추출
+        thumbnail = None
+        if 'thumbnail' in entry and entry['thumbnail']:
+            thumbnail = entry['thumbnail']
+        elif 'thumbnails' in entry and entry['thumbnails']:
+            thumbnail = _get_best_thumbnail(entry['thumbnails'])
+
         result = {
             "webpage_url": entry["webpage_url"],
             "title": entry["title"],
             "url": entry["url"],
-            "duration": entry.get("duration")
+            "duration": entry.get("duration"),
+            "thumbnail": thumbnail,
+            "uploader": entry.get("uploader", "알 수 없음"),
+            "view_count": entry.get("view_count"),
         }
 
         logger.debug(
             f"항목 처리 완료 - 제목: '{result['title']}', "
-            f"길이: {result['duration']}초"
+            f"길이: {result['duration']}초, 썸네일: {bool(thumbnail)}"
         )
         return result
 
