@@ -1,6 +1,6 @@
-from discord_music_bot.domain.models import RepeatMode, Track
-from discord_music_bot.domain.queue import TrackQueue
-from discord_music_bot.domain.playback import decide_next_track
+from app.domain.models import RepeatMode, Track
+from app.domain.queue import TrackQueue
+from app.domain.playback import decide_next_track
 
 
 def _track(title):

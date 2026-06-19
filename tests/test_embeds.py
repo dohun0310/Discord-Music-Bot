@@ -1,6 +1,6 @@
-from discord_music_bot.config import Colors
-from discord_music_bot.domain.models import RepeatMode, Track
-from discord_music_bot.ui.embeds import EmbedFactory
+from app.config import Colors
+from app.domain.models import RepeatMode, Track
+from app.ui.embeds import EmbedFactory
 
 
 def _track(title="곡", duration=100.0):

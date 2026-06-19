@@ -1,4 +1,4 @@
-"""봇 진입점: python -m discord_music_bot."""
+"""봇 진입점: python -m app."""
 
 from __future__ import annotations
 

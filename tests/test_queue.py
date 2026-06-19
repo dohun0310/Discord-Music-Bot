@@ -1,7 +1,7 @@
 import pytest
 
-from discord_music_bot.domain.models import Track
-from discord_music_bot.domain.queue import TrackQueue
+from app.domain.models import Track
+from app.domain.queue import TrackQueue
 
 
 def _track(title):

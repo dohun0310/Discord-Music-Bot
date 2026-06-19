@@ -1,4 +1,4 @@
-from discord_music_bot.domain.models import RepeatMode, Track
+from app.domain.models import RepeatMode, Track
 
 
 def _track(**kw):

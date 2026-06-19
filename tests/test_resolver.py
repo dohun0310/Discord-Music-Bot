@@ -1,5 +1,5 @@
-from discord_music_bot.domain.models import Track
-from discord_music_bot.services.resolver import (
+from app.domain.models import Track
+from app.services.resolver import (
     PlaylistResolution,
     TrackResolution,
     build_batch,

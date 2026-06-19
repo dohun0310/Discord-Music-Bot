@@ -1,4 +1,4 @@
-from discord_music_bot.ui.formatting import (
+from app.ui.formatting import (
     create_progress_bar,
     format_time,
     truncate_string,

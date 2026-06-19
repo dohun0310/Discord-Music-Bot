@@ -1,4 +1,4 @@
-from discord_music_bot.config import Settings
+from app.config import Settings
 
 
 def test_from_env_reads_token_and_defaults(monkeypatch):

@@ -1,4 +1,4 @@
-from discord_music_bot.player.registry import PlayerRegistry
+from app.player.registry import PlayerRegistry
 
 
 class _FakePlayer:

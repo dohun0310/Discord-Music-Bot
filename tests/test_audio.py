@@ -1,5 +1,5 @@
-from discord_music_bot.domain.models import Track
-from discord_music_bot.services.audio import FFmpegSourceFactory
+from app.domain.models import Track
+from app.services.audio import FFmpegSourceFactory
 
 
 def _track():

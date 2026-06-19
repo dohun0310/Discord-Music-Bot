@@ -6,8 +6,8 @@
 
 ## 프로젝트 개요
 
-- 진입점: `python -m discord_music_bot` (하위 호환용 `main.py` shim 포함)
-- 패키지: `discord_music_bot/`
+- 진입점: `python -m app` (하위 호환용 `main.py` shim 포함)
+- 패키지: `app/`
   - `domain/` — Track 값 객체, TrackQueue, 반복/다음곡 정책 (순수 로직)
   - `services/` — yt-dlp 리졸버, ffmpeg 소스 팩토리 (Protocol 기반)
   - `player/` — GuildPlayer(재생 루프), PlayerRegistry
