@@ -10,6 +10,8 @@ def test_from_env_reads_token_and_defaults(monkeypatch):
     assert s.default_volume == 0.5
     assert s.max_volume == 2.0
     assert s.queue_timeout == 300
+    assert s.opus_bitrate == 128
+    assert s.opus_signal_type == "music"
 
 
 def test_from_env_overrides_log_level(monkeypatch):

@@ -22,6 +22,8 @@ class Settings:
     playlist_batch_size: int = 10
     default_volume: float = 0.5
     max_volume: float = 2.0
+    opus_bitrate: int = 128          # Opus 인코더 비트레이트(kbps)
+    opus_signal_type: str = "music"  # 음악 최적화 Opus 시그널 타입 (auto/voice/music)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -83,6 +85,12 @@ YTDL_OPTIONS = {
 }
 
 FFMPEG_OPTIONS = {
-    "before_options": "-nostdin -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn -bufsize 64k",
+    # 네트워크 스트림이 중간에 끊겨도 자동 재연결 (간헐적 끊김/끊김음 완화)
+    "before_options": (
+        "-nostdin "
+        "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 "
+        "-reconnect_on_network_error 1 -reconnect_on_http_error 4xx,5xx"
+    ),
+    # 비디오 스트림 제거 (PCM 출력엔 무의미하던 -bufsize 제거)
+    "options": "-vn",
 }

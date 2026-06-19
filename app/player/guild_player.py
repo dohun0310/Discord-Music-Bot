@@ -259,6 +259,8 @@ class GuildPlayer:
             self._voice_client.play(
                 source,
                 after=lambda e: self._bot.loop.call_soon_threadsafe(self._on_finished, e),
+                bitrate=self._settings.opus_bitrate,
+                signal_type=self._settings.opus_signal_type,
             )
             self._start_time = self._bot.loop.time()
             await self._update_presence()
