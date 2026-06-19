@@ -16,7 +16,7 @@ from ..ui.embeds import EmbedFactory
 from ..ui.formatting import truncate_string
 from .base import MusicCog
 
-logger = logging.getLogger("discord.bot.cog.playback")
+logger = logging.getLogger(__name__)
 
 
 class PlaybackCog(MusicCog):

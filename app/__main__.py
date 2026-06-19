@@ -10,7 +10,7 @@ from .bot import build_bot
 from .config import Settings
 from .logging_setup import configure_logging
 
-logger = logging.getLogger("discord.bot.main")
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:

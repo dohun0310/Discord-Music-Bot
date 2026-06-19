@@ -14,7 +14,7 @@ from ..services.resolver import TrackResolver
 from ..ui.embeds import EmbedFactory
 from .guild_player import GuildPlayer
 
-logger = logging.getLogger("discord.bot.registry")
+logger = logging.getLogger(__name__)
 
 
 class PlayerRegistry:

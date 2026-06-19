@@ -11,7 +11,7 @@ from ..config import Emoji
 from ..ui.formatting import truncate_string
 from .base import MusicCog
 
-logger = logging.getLogger("discord.bot.cog.queue")
+logger = logging.getLogger(__name__)
 
 
 class QueueCog(MusicCog):

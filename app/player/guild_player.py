@@ -21,7 +21,7 @@ from ..services.audio import AudioSourceFactory
 from ..services.resolver import TrackResolver
 from ..ui.embeds import EmbedFactory
 
-logger = logging.getLogger("discord.bot.player")
+logger = logging.getLogger(__name__)
 
 
 class GuildPlayer:
@@ -110,6 +110,7 @@ class GuildPlayer:
         if self._voice_client and self._voice_client.is_playing():
             self._voice_client.pause()
             self._paused = True
+            logger.info("[%s] 재생 일시정지", self.guild.name)
             return True
         return False
 
@@ -117,6 +118,7 @@ class GuildPlayer:
         if self._voice_client and self._voice_client.is_paused():
             self._voice_client.resume()
             self._paused = False
+            logger.info("[%s] 재생 재개", self.guild.name)
             return True
         return False
 
@@ -126,14 +128,19 @@ class GuildPlayer:
             self._voice_client.source, discord.PCMVolumeTransformer
         ):
             self._voice_client.source.volume = self._volume
+        logger.info("[%s] 볼륨 설정: %.0f%%", self.guild.name, self._volume * 100)
         return self._volume
 
     def toggle_repeat(self) -> RepeatMode:
         self._repeat = self._repeat.next()
+        logger.info("[%s] 반복 모드 변경: %s", self.guild.name, self._repeat.name)
         return self._repeat
 
     def shuffle_queue(self) -> int:
-        return self._queue.shuffle()
+        count = self._queue.shuffle()
+        if count:
+            logger.info("[%s] 대기열 셔플: %d곡", self.guild.name, count)
+        return count
 
     def clear_queue(self) -> int:
         count = self._queue.clear()
@@ -141,10 +148,14 @@ class GuildPlayer:
         self._playlist_url = None
         self._next_playlist_index = 1
         self._loading_batch = False
+        if count:
+            logger.info("[%s] 대기열 비움 - 제거: %d곡", self.guild.name, count)
         return count
 
     def remove(self, position: int) -> Track:
-        return self._queue.remove(position)
+        track = self._queue.remove(position)
+        logger.info("[%s] 대기열에서 곡 제거: '%s'", self.guild.name, track.title)
+        return track
 
     def skip(self) -> Optional[Track]:
         """현재 곡을 중지하고 다음으로 진행. 스킵된 곡을 반환(없으면 None)."""
@@ -156,6 +167,7 @@ class GuildPlayer:
         if self._repeat == RepeatMode.ONE:
             self._repeat = RepeatMode.OFF
         self._voice_client.stop()
+        logger.info("[%s] 건너뛰기: '%s'", self.guild.name, getattr(skipped, "title", "알 수 없음"))
         return skipped
 
     def playback_position(self) -> Optional[float]:

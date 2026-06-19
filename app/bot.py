@@ -13,6 +13,7 @@ import yt_dlp
 from discord import app_commands
 from discord.ext import commands
 
+from .activity_log import command_context, format_command_args, register_command_logging
 from .config import FFMPEG_OPTIONS, Settings, YTDL_OPTIONS
 from .cogs.playback import PlaybackCog
 from .cogs.queue import QueueCog
@@ -22,7 +23,7 @@ from .services.audio import FFmpegSourceFactory
 from .services.resolver import YtDlpTrackResolver
 from .ui.embeds import EmbedFactory
 
-logger = logging.getLogger("discord.bot.main")
+logger = logging.getLogger(__name__)
 
 # yt-dlp 버그 리포트 메시지 비활성화
 yt_dlp.utils.bug_reports_message = lambda *a, **k: ""
@@ -63,6 +64,9 @@ def build_bot(settings: Settings) -> commands.Bot:
 
 
 def _register_events(bot: commands.Bot, registry: PlayerRegistry, embeds: EmbedFactory) -> None:
+    # 모든 슬래시 명령 호출을 한국어로 중앙 집중 로깅 (SRP/DRY)
+    register_command_logging(bot)
+
     @bot.event
     async def on_ready() -> None:
         print(
@@ -88,9 +92,11 @@ def _register_events(bot: commands.Bot, registry: PlayerRegistry, embeds: EmbedF
 
     @bot.tree.error
     async def on_app_command_error(interaction: discord.Interaction, error) -> None:
-        guild_name = interaction.guild.name if interaction.guild else "DM"
-        cmd = interaction.command.name if interaction.command else "알 수 없음"
-        logger.error("[%s] 명령어 오류 - %s: %s", guild_name, cmd, error, exc_info=True)
+        guild_name, cmd, user = command_context(interaction)
+        logger.error(
+            "[%s] /%s 오류 - 사용자: %s%s - %s",
+            guild_name, cmd, user, format_command_args(interaction), error, exc_info=True,
+        )
 
         if isinstance(error, app_commands.NoPrivateMessage):
             msg = "이 명령어는 DM에서 사용할 수 없습니다."

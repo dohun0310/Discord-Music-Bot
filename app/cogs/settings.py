@@ -11,7 +11,7 @@ from ..config import Emoji
 from ..domain.models import RepeatMode
 from .base import MusicCog
 
-logger = logging.getLogger("discord.bot.cog.settings")
+logger = logging.getLogger(__name__)
 
 
 class SettingsCog(MusicCog):

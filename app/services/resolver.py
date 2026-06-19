@@ -16,7 +16,7 @@ import yt_dlp
 
 from ..domain.models import Track
 
-logger = logging.getLogger("discord.bot.resolver")
+logger = logging.getLogger(__name__)
 
 _REQUIRED_KEYS = ("url", "title", "webpage_url")
 
