@@ -32,7 +32,7 @@ pytest
 
 2. **재생 대기열 (Queue)**:  
    - 여러 곡을 순서대로 재생할 수 있도록 대기열을 관리합니다.  
-   - `MusicPlayer` 클래스에서 대기열 로직과 재생 순서를 제어합니다.
+   - `GuildPlayer` 클래스에서 대기열 로직과 재생 순서를 제어합니다.
 
 3. **명령어 예시**:  
    - `/재생 [URL or 검색어]` : 유튜브 URL 혹은 검색어로 음악 재생  
@@ -45,7 +45,7 @@ pytest
 
 ## 설치 방법
 
-1. **Python 버전**: Python 3.10 이상 사용 권장  
+1. **Python 버전**: Python 3.10 이상 (Docker 이미지는 `python:3.14-slim` 사용)  
 2. **의존성 설치**:  
    ```bash
    pip install -r requirements.txt
