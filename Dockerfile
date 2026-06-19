@@ -12,4 +12,4 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
-CMD ["python", "main.py"]
+CMD ["python", "-m", "discord_music_bot"]

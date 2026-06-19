@@ -6,11 +6,21 @@
 
 ## 프로젝트 개요
 
-- 디스코드 봇의 실행 파일: `main.py`  
-- 음악 관련 로직 파일: `music_player.py`  
-- YouTube 음원 정보를 추출하는 파일: `ytdl_source.py`  
-- 봇 설정 정보: `config.py`  
-- 헬퍼 함수(메시지 전송 등)를 포함한 파일: `utils.py`
+- 진입점: `python -m discord_music_bot` (하위 호환용 `main.py` shim 포함)
+- 패키지: `discord_music_bot/`
+  - `domain/` — Track 값 객체, TrackQueue, 반복/다음곡 정책 (순수 로직)
+  - `services/` — yt-dlp 리졸버, ffmpeg 소스 팩토리 (Protocol 기반)
+  - `player/` — GuildPlayer(재생 루프), PlayerRegistry
+  - `ui/` — EmbedFactory, 포맷 헬퍼
+  - `cogs/` — 슬래시 명령 (재생/대기열/설정)
+  - `bot.py` — 의존성 조립(합성 루트), `config.py` — 설정
+
+## 테스트
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
 
 ---
 
