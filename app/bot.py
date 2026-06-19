@@ -43,7 +43,7 @@ def build_bot(settings: Settings) -> commands.Bot:
     embeds = EmbedFactory()
     resolver = YtDlpTrackResolver(
         ytdl_options=YTDL_OPTIONS, batch_size=settings.playlist_batch_size,
-        loop=bot.loop, executor=executor,
+        executor=executor,
     )
     source_factory = FFmpegSourceFactory(FFMPEG_OPTIONS)
     registry = PlayerRegistry(

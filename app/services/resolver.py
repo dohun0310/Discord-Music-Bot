@@ -111,12 +111,10 @@ class YtDlpTrackResolver:
 
     def __init__(
         self, *, ytdl_options: dict[str, Any], batch_size: int,
-        loop: asyncio.AbstractEventLoop, executor: ThreadPoolExecutor,
-        ytdl_factory=yt_dlp.YoutubeDL,
+        executor: ThreadPoolExecutor, ytdl_factory=yt_dlp.YoutubeDL,
     ) -> None:
         self._options = ytdl_options
         self._batch_size = batch_size
-        self._loop = loop
         self._executor = executor
         self._ytdl_factory = ytdl_factory
 
@@ -124,7 +122,10 @@ class YtDlpTrackResolver:
         opts = dict(self._options)
         opts["playlist_items"] = playlist_items
         ytdl = self._ytdl_factory(opts)
-        return await self._loop.run_in_executor(
+        # 실행 중인 이벤트 루프를 호출 시점에 얻는다. (생성 시점의 bot.loop은
+        # discord.py 2.x에서 아직 _LoopSentinel이라 저장해두면 런타임에 깨진다.)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
             self._executor, lambda: ytdl.extract_info(query, download=False)
         )
 

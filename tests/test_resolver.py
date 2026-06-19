@@ -2,6 +2,7 @@ from app.domain.models import Track
 from app.services.resolver import (
     PlaylistResolution,
     TrackResolution,
+    YtDlpTrackResolver,
     build_batch,
     build_resolution,
 )
@@ -66,3 +67,33 @@ def test_thumbnail_picks_highest_resolution():
     ])
     res = build_resolution(entry, query="q", requester="@r", is_search=False)
     assert res.track.thumbnail == "high"
+
+
+async def test_resolve_uses_running_loop_without_injected_loop():
+    """리졸버는 외부 주입 루프 없이 실행 중인 이벤트 루프를 사용해 동작해야 한다.
+
+    회귀 방지: build_bot가 `bot.loop`을 생성 시점에 캡처하면 discord.py 2.x의
+    `_LoopSentinel`이 들어와 재생 시 'loop attribute cannot be accessed' 오류가 났다.
+    resolve()는 async 컨텍스트에서 스스로 running loop를 얻어야 한다.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    class _FakeYTDL:
+        def __init__(self, opts):
+            pass
+
+        def extract_info(self, query, download=False):
+            return _entry(title="재생곡")
+
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
+        resolver = YtDlpTrackResolver(
+            ytdl_options={}, batch_size=10, executor=executor, ytdl_factory=_FakeYTDL,
+        )
+        result = await resolver.resolve("검색어", "@user")
+    finally:
+        executor.shutdown(wait=False)
+
+    assert isinstance(result, TrackResolution)
+    assert result.track.title == "재생곡"
+    assert result.track.stream_url == "http://stream"
