@@ -37,3 +37,25 @@ def decide_next_track(
     if track is not None and repeat == RepeatMode.ALL:
         history.append(track)
     return track
+
+
+MIN_PLAY_SECONDS = 2.0     # 이보다 빨리 끝나면 비정상 종료 의심
+SHORT_TRACK_CUTOFF = 10.0  # 이보다 짧은 곡은 빠른 종료가 정상일 수 있어 제외
+
+
+def is_playback_failure(
+    had_error: bool, elapsed: Optional[float], duration: Optional[float],
+) -> bool:
+    """재생 종료가 실패인지 판정한다 (연속 실패 중단 정책의 입력).
+
+    (a) 에러를 수반한 종료, 또는 (b) 곡 길이가 SHORT_TRACK_CUTOFF 이상인데
+    MIN_PLAY_SECONDS 미만 만에 끝난 경우(즉시 죽은 ffmpeg 추정)를 실패로 본다.
+    """
+    if had_error:
+        return True
+    return (
+        elapsed is not None
+        and elapsed < MIN_PLAY_SECONDS
+        and duration is not None
+        and duration >= SHORT_TRACK_CUTOFF
+    )

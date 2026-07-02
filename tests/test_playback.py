@@ -50,3 +50,34 @@ def test_all_refills_from_history_when_empty():
 
 def test_empty_returns_none():
     assert decide_next_track(RepeatMode.OFF, None, TrackQueue(), []) is None
+
+
+def test_error_end_is_failure():
+    from app.domain.playback import is_playback_failure
+
+    assert is_playback_failure(True, 50.0, 100.0) is True
+
+
+def test_instant_end_of_long_track_is_failure():
+    from app.domain.playback import is_playback_failure
+
+    assert is_playback_failure(False, 0.5, 100.0) is True
+
+
+def test_short_track_fast_end_is_not_failure():
+    from app.domain.playback import is_playback_failure
+
+    assert is_playback_failure(False, 0.5, 5.0) is False
+
+
+def test_normal_end_is_not_failure():
+    from app.domain.playback import is_playback_failure
+
+    assert is_playback_failure(False, 99.0, 100.0) is False
+
+
+def test_unknown_elapsed_or_duration_is_not_failure():
+    from app.domain.playback import is_playback_failure
+
+    assert is_playback_failure(False, None, 100.0) is False
+    assert is_playback_failure(False, 0.5, None) is False

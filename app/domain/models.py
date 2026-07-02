@@ -34,3 +34,4 @@ class Track:
     thumbnail: Optional[str]
     uploader: str
     requester: str
+    resolved_at: Optional[float] = None  # stream_url 해석 시각(단조 시계). None이면 신선도 판단 안 함

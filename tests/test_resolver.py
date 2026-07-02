@@ -97,3 +97,48 @@ async def test_resolve_uses_running_loop_without_injected_loop():
     assert isinstance(result, TrackResolution)
     assert result.track.title == "재생곡"
     assert result.track.stream_url == "http://stream"
+
+
+def test_resolution_stamps_resolved_at():
+    res = build_resolution(
+        _entry(), query="q", requester="@r", is_search=False, resolved_at=123.0
+    )
+    assert res.track.resolved_at == 123.0
+
+
+def test_resolved_at_defaults_to_none():
+    res = build_resolution(_entry(), query="q", requester="@r", is_search=False)
+    assert res.track.resolved_at is None
+
+
+async def test_refresh_returns_new_track_preserving_requester():
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.domain.models import Track
+
+    class _FakeYTDL:
+        def __init__(self, opts):
+            pass
+
+        def extract_info(self, query, download=False):
+            return _entry(title="새로고침", url="http://stream-new")
+
+    old_resolved_at = time.monotonic() - 1.0  # 1 second ago
+    old = Track(
+        title="옛곡", stream_url="http://stream-old", webpage_url="http://watch",
+        duration=100.0, thumbnail=None, uploader="u", requester="@r",
+        resolved_at=old_resolved_at,
+    )
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
+        resolver = YtDlpTrackResolver(
+            ytdl_options={}, batch_size=10, executor=executor, ytdl_factory=_FakeYTDL,
+        )
+        refreshed = await resolver.refresh(old)
+    finally:
+        executor.shutdown(wait=False)
+    assert refreshed is not None
+    assert refreshed.stream_url == "http://stream-new"
+    assert refreshed.requester == "@r"
+    assert refreshed.resolved_at is not None and refreshed.resolved_at > old.resolved_at
