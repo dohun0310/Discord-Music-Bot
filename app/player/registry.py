@@ -61,9 +61,15 @@ class PlayerRegistry:
     def create(
         self, *, guild: discord.Guild, text_channel, voice_client,
     ) -> GuildPlayer:
+        def on_destroy(guild_id: int) -> None:
+            # 늦게 완료된 옛 플레이어의 정리가 새 플레이어를 제거하지 않도록
+            # 등록된 플레이어가 자기 자신일 때만 제거한다.
+            if self._players.get(guild_id) is player:
+                del self._players[guild_id]
+
         player = self._player_factory(
             guild=guild, text_channel=text_channel, voice_client=voice_client,
-            on_destroy=self._remove,
+            on_destroy=on_destroy,
         )
         self._players[guild.id] = player
         return player
@@ -83,6 +89,3 @@ class PlayerRegistry:
             await player.destroy(notify=False)
             return
         player.on_voice_members_changed()
-
-    def _remove(self, guild_id: int) -> None:
-        self._players.pop(guild_id, None)

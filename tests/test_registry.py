@@ -99,3 +99,14 @@ async def test_voice_event_without_player_is_noop():
     reg = PlayerRegistry(player_factory=lambda **kw: None)
     member = _Member(5, _Guild(42))
     await reg.notify_voice_state(member, _VoiceState(None), _VoiceState("음성1"), bot_user_id=99)
+
+
+def test_stale_destroy_callback_does_not_remove_new_player():
+    reg, created = _registry()
+    reg.create(guild=_Guild(1), text_channel=object(), voice_client=object())
+    old = created[0]
+    new = reg.create(guild=_Guild(1), text_channel=object(), voice_client=object())
+    old._on_destroy(1)  # 옛 플레이어의 늦은 정리 콜백
+    assert reg.get(1) is new  # 새 플레이어는 그대로 등록 유지
+    new._on_destroy(1)
+    assert reg.get(1) is None
