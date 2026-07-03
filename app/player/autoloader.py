@@ -28,17 +28,20 @@ class PlaylistAutoLoader:
         self._next_index = 1
         self._requester: Optional[str] = None
         self._loading = False
+        self._generation = 0
 
     @property
     def active(self) -> bool:
         return self._url is not None
 
     def set(self, url: str, next_index: int, requester: str) -> None:
+        self._generation += 1
         self._url = url
         self._next_index = next_index
         self._requester = requester
 
     def clear(self) -> None:
+        self._generation += 1
         self._url = None
         self._next_index = 1
         self._requester = None
@@ -51,12 +54,15 @@ class PlaylistAutoLoader:
 
     async def _load(self, add_tracks: AddTracks) -> None:
         url = self._url
+        generation = self._generation
         try:
             if url is None:
                 return
             tracks = await self._resolver.load_playlist_batch(
                 url, self._next_index, self._requester or "자동 로드"
             )
+            if generation != self._generation:
+                return  # 대기 중 set()/clear()로 무효화된 결과는 폐기
             if not tracks:
                 self.clear()  # 플레이리스트 끝
                 return
@@ -65,6 +71,7 @@ class PlaylistAutoLoader:
             logger.info("[%s] 플레이리스트 배치 로드 %d곡", self._guild_name, added)
         except Exception as exc:  # noqa: BLE001 - 로딩 실패 시 자동 로드 포기
             logger.error("[%s] 배치 로드 실패 - %s", self._guild_name, exc, exc_info=True)
-            self.clear()
+            if generation == self._generation:
+                self.clear()  # 무효화된 로드 실패가 새 플레이리스트를 지우면 안 됨
         finally:
             self._loading = False
