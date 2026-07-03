@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import atexit
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from typing import Optional
 
 import discord
 import yt_dlp
@@ -18,10 +18,12 @@ from .config import Settings
 from .cogs.playback import PlaybackCog
 from .cogs.queue import QueueCog
 from .cogs.settings import SettingsCog
+from .domain.models import Track
 from .player.registry import PlayerRegistry
 from .services.audio import DEFAULT_FFMPEG_OPTIONS, FFmpegSourceFactory
 from .services.resolver import DEFAULT_YTDL_OPTIONS, YtDlpTrackResolver
 from .ui.embeds import EmbedFactory
+from .ui.formatting import truncate_string
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,17 @@ def build_bot(settings: Settings) -> commands.Bot:
     executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ytdl")
     atexit.register(executor.shutdown, wait=False)
 
+    async def set_presence(track: Optional[Track]) -> None:
+        """전역 presence 갱신 (여러 서버 동시 재생 시 마지막 곡 표시 - 현행 유지)."""
+        if track is None:
+            await bot.change_presence(activity=None)
+            return
+        activity = discord.Activity(
+            type=discord.ActivityType.listening,
+            name=truncate_string(track.title, 40),
+        )
+        await bot.change_presence(activity=activity)
+
     embeds = EmbedFactory()
     resolver = YtDlpTrackResolver(
         ytdl_options=DEFAULT_YTDL_OPTIONS, batch_size=settings.playlist_batch_size,
@@ -48,14 +61,20 @@ def build_bot(settings: Settings) -> commands.Bot:
     )
     source_factory = FFmpegSourceFactory(DEFAULT_FFMPEG_OPTIONS)
     registry = PlayerRegistry(
-        bot=bot, settings=settings, resolver=resolver,
-        source_factory=source_factory, embeds=embeds,
+        settings=settings, resolver=resolver, source_factory=source_factory,
+        embeds=embeds, set_presence=set_presence,
     )
 
     async def setup_hook() -> None:
         await bot.add_cog(PlaybackCog(bot, registry, embeds, settings, resolver))
         await bot.add_cog(QueueCog(bot, registry, embeds, settings))
         await bot.add_cog(SettingsCog(bot, registry, embeds, settings))
+        # 재연결(on_ready 반복)마다 sync하지 않도록 여기서 1회만 실행한다.
+        try:
+            synced = await bot.tree.sync()
+            logger.info("동기화된 명령어: %d개", len(synced))
+        except Exception as exc:  # noqa: BLE001 - sync 실패가 기동을 막으면 안 됨
+            logger.error("명령어 동기화 실패 - %s", exc)
 
     bot.setup_hook = setup_hook
 
@@ -76,19 +95,12 @@ def _register_events(bot: commands.Bot, registry: PlayerRegistry, embeds: EmbedF
             f"  시작 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         )
         logger.info("봇 준비 완료 - %s (%s)", bot.user.name, bot.user.id)
-        try:
-            synced = await bot.tree.sync()
-            print(f"  ✓ 동기화된 명령어: {len(synced)}개")
-        except Exception as exc:  # noqa: BLE001
-            logger.error("명령어 동기화 실패 - %s", exc)
 
     @bot.event
     async def on_voice_state_update(member, before, after) -> None:
-        if member.id == bot.user.id and before.channel and not after.channel:
-            player = registry.get(member.guild.id)
-            if player:
-                logger.info("[%s] 봇 음성 연결 해제 감지 - 플레이어 정리", member.guild.name)
-                await player.destroy(notify=False)
+        if bot.user is None:
+            return
+        await registry.notify_voice_state(member, before, after, bot.user.id)
 
     @bot.tree.error
     async def on_app_command_error(interaction: discord.Interaction, error) -> None:
