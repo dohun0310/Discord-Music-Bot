@@ -1,4 +1,4 @@
-from app.config import Colors
+from app.ui.theme import Colors
 from app.domain.models import RepeatMode, Track
 from app.ui.embeds import EmbedFactory
 

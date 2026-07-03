@@ -7,8 +7,8 @@ import logging
 import discord
 from discord import app_commands
 
-from ..config import Emoji
 from ..ui.formatting import truncate_string
+from ..ui.theme import Emoji
 from .base import MusicCog
 
 logger = logging.getLogger(__name__)

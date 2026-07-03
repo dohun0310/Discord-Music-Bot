@@ -9,11 +9,12 @@ import yt_dlp
 from discord import app_commands
 from discord.ext import commands
 
-from ..config import Emoji, Settings
+from ..config import Settings
 from ..player.registry import PlayerRegistry
 from ..services.resolver import PlaylistResolution, TrackResolver
 from ..ui.embeds import EmbedFactory
 from ..ui.formatting import truncate_string
+from ..ui.theme import Emoji
 from .base import MusicCog
 
 logger = logging.getLogger(__name__)

@@ -19,6 +19,19 @@ from ..domain.models import Track
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_YTDL_OPTIONS: dict[str, Any] = {
+    "format": "bestaudio/best",
+    "restrictfilenames": True,
+    "nocheckcertificate": True,
+    "ignoreerrors": True,
+    "logtostderr": False,
+    "quiet": True,
+    "no_warnings": True,
+    "default_search": "auto",
+    "source_address": "0.0.0.0",
+    "extractor_args": {"youtube": {"player_client": ["android_vr"]}},
+}
+
 _REQUIRED_KEYS = ("url", "title", "webpage_url")
 
 

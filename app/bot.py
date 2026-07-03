@@ -14,13 +14,13 @@ from discord import app_commands
 from discord.ext import commands
 
 from .activity_log import command_context, format_command_args, register_command_logging
-from .config import FFMPEG_OPTIONS, Settings, YTDL_OPTIONS
+from .config import Settings
 from .cogs.playback import PlaybackCog
 from .cogs.queue import QueueCog
 from .cogs.settings import SettingsCog
 from .player.registry import PlayerRegistry
-from .services.audio import FFmpegSourceFactory
-from .services.resolver import YtDlpTrackResolver
+from .services.audio import DEFAULT_FFMPEG_OPTIONS, FFmpegSourceFactory
+from .services.resolver import DEFAULT_YTDL_OPTIONS, YtDlpTrackResolver
 from .ui.embeds import EmbedFactory
 
 logger = logging.getLogger(__name__)
@@ -43,10 +43,10 @@ def build_bot(settings: Settings) -> commands.Bot:
 
     embeds = EmbedFactory()
     resolver = YtDlpTrackResolver(
-        ytdl_options=YTDL_OPTIONS, batch_size=settings.playlist_batch_size,
+        ytdl_options=DEFAULT_YTDL_OPTIONS, batch_size=settings.playlist_batch_size,
         executor=executor,
     )
-    source_factory = FFmpegSourceFactory(FFMPEG_OPTIONS)
+    source_factory = FFmpegSourceFactory(DEFAULT_FFMPEG_OPTIONS)
     registry = PlayerRegistry(
         bot=bot, settings=settings, resolver=resolver,
         source_factory=source_factory, embeds=embeds,

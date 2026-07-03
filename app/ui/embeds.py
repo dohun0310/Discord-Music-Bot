@@ -6,9 +6,9 @@ from typing import Optional
 
 import discord
 
-from ..config import Colors, Emoji
 from ..domain.models import RepeatMode, Track
 from .formatting import create_progress_bar, format_time, truncate_string
+from .theme import Colors, Emoji
 
 
 class EmbedFactory:
