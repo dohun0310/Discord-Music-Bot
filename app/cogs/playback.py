@@ -33,17 +33,21 @@ class PlaybackCog(MusicCog):
     @app_commands.guild_only()
     async def play(self, interaction: discord.Interaction, query: str) -> None:
         # 1) 사전 확인: 사용자가 음성 채널에 있는가 (defer 이전, 즉시 응답)
-        if not interaction.user.voice or not interaction.user.voice.channel:
-            await interaction.response.send_message(
-                embed=self.embeds.warning("먼저 음성 채널에 접속해주세요."), ephemeral=True
-            )
+        user_voice = getattr(interaction.user, "voice", None)
+        if not user_voice or not user_voice.channel:
+            await self.warn(interaction, "먼저 음성 채널에 접속해주세요.")
             return
-        channel = interaction.user.voice.channel
+        channel = user_voice.channel
+
+        # 2) 봇이 이미 다른 채널에서 재생 중이면 거절
+        player = self.registry.get(interaction.guild.id)
+        if player and player.is_connected() and channel != player.voice_channel:
+            await self.warn(interaction, "봇이 다른 음성 채널에서 재생 중입니다. 같은 채널에서 사용해주세요.")
+            return
 
         await interaction.response.defer(thinking=True)
 
-        # 2) 플레이어 확보 (연결)
-        player = self.registry.get(interaction.guild.id)
+        # 3) 플레이어 확보 (연결)
         if player is None or not player.is_connected():
             try:
                 if player:
@@ -51,48 +55,48 @@ class PlaybackCog(MusicCog):
                 voice_client = await channel.connect()
             except Exception as exc:  # noqa: BLE001
                 logger.error("[%s] 음성 연결 실패 - %s", interaction.guild.name, exc, exc_info=True)
-                await interaction.followup.send(
-                    embed=self.embeds.error(f"음성 채널 연결 실패: {exc}")
-                )
+                await self.respond(interaction, self.embeds.error(f"음성 채널 연결 실패: {exc}"))
                 return
             player = self.registry.create(
                 guild=interaction.guild, text_channel=interaction.channel,
                 voice_client=voice_client,
             )
-        else:
-            player.text_channel = interaction.channel
+        player.set_text_channel(interaction.channel)
 
-        # 3) 해석
+        # 4) 해석
         try:
             result = await self.resolver.resolve(query, interaction.user.mention)
         except yt_dlp.utils.DownloadError as exc:
-            await interaction.followup.send(embed=self.embeds.error(self._download_error_message(exc)))
+            await self.respond(interaction, self.embeds.error(self._download_error_message(exc)))
             return
         except Exception as exc:  # noqa: BLE001
             logger.error("[%s] 정보 검색 실패 - %s", interaction.guild.name, exc, exc_info=True)
-            await interaction.followup.send(embed=self.embeds.error(f"음악 정보를 가져오는 중 오류 발생: {exc}"))
+            await self.respond(interaction, self.embeds.error(f"음악 정보를 가져오는 중 오류 발생: {exc}"))
             return
 
         if result is None:
-            await interaction.followup.send(embed=self.embeds.error("검색 결과가 없거나 처리 중 오류가 발생했습니다."))
+            await self.respond(interaction, self.embeds.error("검색 결과가 없거나 처리 중 오류가 발생했습니다."))
             return
 
-        # 4) 대기열 추가
+        # 5) 대기열 추가
         if isinstance(result, PlaylistResolution):
             player.set_playlist(result.original_url, result.next_start_index, interaction.user.mention)
             count = player.add_tracks(result.tracks)
             if count == 0:
-                await interaction.followup.send(
-                    embed=self.embeds.warning(f"플레이리스트 '{result.title}'에서 유효한 곡을 찾지 못했습니다.")
+                await self.respond(
+                    interaction,
+                    self.embeds.warning(f"플레이리스트 '{result.title}'에서 유효한 곡을 찾지 못했습니다."),
                 )
                 return
-            await interaction.followup.send(
-                embed=self.embeds.playlist_added(result.title, count=count, requester=interaction.user.mention)
+            await self.respond(
+                interaction,
+                self.embeds.playlist_added(result.title, count=count, requester=interaction.user.mention),
             )
         else:
             player.add_track(result.track)
-            await interaction.followup.send(
-                embed=self.embeds.track_added(result.track, queue_position=player.queue_size)
+            await self.respond(
+                interaction,
+                self.embeds.track_added(result.track, queue_position=player.queue_size),
             )
 
     @staticmethod
@@ -107,75 +111,64 @@ class PlaybackCog(MusicCog):
     @app_commands.command(name="스킵", description="현재 재생 중인 곡을 건너뜁니다.")
     @app_commands.guild_only()
     async def skip(self, interaction: discord.Interaction) -> None:
-        player = self.connected_player(interaction)
+        player = await self.require_control(interaction)
         if not player:
-            await self.warn_no_player(interaction)
             return
         skipped = player.skip()
         if skipped is None:
-            await interaction.response.send_message(
-                embed=self.embeds.warning("재생 중인 곡이 없습니다."), ephemeral=True
-            )
+            await self.warn(interaction, "재생 중인 곡이 없습니다.")
             return
-        await interaction.response.send_message(
-            embed=self.embeds.success(f"**{truncate_string(skipped.title, 40)}** 건너뛰었습니다.")
+        await self.respond(
+            interaction,
+            self.embeds.success(f"**{truncate_string(skipped.title, 40)}** 건너뛰었습니다."),
         )
 
     @app_commands.command(name="정지", description="음악 재생을 중지하고 봇을 퇴장시킵니다.")
     @app_commands.guild_only()
     async def stop(self, interaction: discord.Interaction) -> None:
-        player = self.connected_player(interaction)
+        player = await self.require_control(interaction)
         if not player:
-            await self.warn_no_player(interaction)
             return
         await player.destroy(notify=False)
-        await interaction.response.send_message(
-            embed=self.embeds.message(f"{Emoji.STOP} 음악 재생을 중지하고 연결을 종료했습니다.")
+        await self.respond(
+            interaction,
+            self.embeds.message(f"{Emoji.STOP} 음악 재생을 중지하고 연결을 종료했습니다."),
         )
 
     @app_commands.command(name="일시정지", description="음악 재생을 일시정지합니다.")
     @app_commands.guild_only()
     async def pause(self, interaction: discord.Interaction) -> None:
-        player = self.connected_player(interaction)
+        player = await self.require_control(interaction)
         if not player:
-            await self.warn_no_player(interaction)
             return
         if await player.pause():
-            await interaction.response.send_message(embed=self.embeds.message(f"{Emoji.PAUSE} 일시정지되었습니다."))
+            await self.respond(interaction, self.embeds.message(f"{Emoji.PAUSE} 일시정지되었습니다."))
         else:
-            await interaction.response.send_message(
-                embed=self.embeds.warning("재생 중인 곡이 없습니다."), ephemeral=True
-            )
+            await self.warn(interaction, "재생 중인 곡이 없습니다.")
 
     @app_commands.command(name="재개", description="일시정지된 음악을 다시 재생합니다.")
     @app_commands.guild_only()
     async def resume(self, interaction: discord.Interaction) -> None:
-        player = self.connected_player(interaction)
+        player = await self.require_control(interaction)
         if not player:
-            await self.warn_no_player(interaction)
             return
         if await player.resume():
-            await interaction.response.send_message(embed=self.embeds.success("재생을 재개합니다."))
+            await self.respond(interaction, self.embeds.success("재생을 재개합니다."))
         else:
-            await interaction.response.send_message(
-                embed=self.embeds.warning("일시정지된 곡이 없습니다."), ephemeral=True
-            )
+            await self.warn(interaction, "일시정지된 곡이 없습니다.")
 
     @app_commands.command(name="현재곡", description="현재 재생 중인 곡 정보를 표시합니다.")
     @app_commands.guild_only()
     async def now_playing(self, interaction: discord.Interaction) -> None:
-        player = self.connected_player(interaction)
+        player = await self.require_player(interaction)
         if not player:
-            await self.warn_no_player(interaction)
             return
         if not player.current:
-            await interaction.response.send_message(
-                embed=self.embeds.warning("현재 재생 중인 곡이 없습니다."), ephemeral=True
-            )
+            await self.warn(interaction, "현재 재생 중인 곡이 없습니다.")
             return
         await interaction.response.defer()
         embed = self.embeds.progress(
             player.current, volume=player.volume, repeat_mode=player.repeat_mode,
             queue_size=player.queue_size, position=player.playback_position(),
         )
-        await interaction.followup.send(embed=embed)
+        await self.respond(interaction, embed)
