@@ -8,12 +8,13 @@
 
 - 진입점: `python -m app` (하위 호환용 `main.py` shim 포함)
 - 패키지: `app/`
-  - `domain/` — Track 값 객체, TrackQueue, 반복/다음곡 정책 (순수 로직)
-  - `services/` — yt-dlp 리졸버, ffmpeg 소스 팩토리 (Protocol 기반)
-  - `player/` — GuildPlayer(재생 루프), PlayerRegistry
-  - `ui/` — EmbedFactory, 포맷 헬퍼
-  - `cogs/` — 슬래시 명령 (재생/대기열/설정)
-  - `bot.py` — 의존성 조립(합성 루트), `config.py` — 설정
+  - `domain/` — Track 값 객체, TrackQueue, 반복/다음곡·실패 판정 정책 (순수 로직)
+  - `services/` — yt-dlp 리졸버(만료 URL 재해석 포함), ffmpeg 소스 팩토리 (Protocol 기반)
+  - `player/` — GuildPlayer(재생 오케스트레이션), PlaybackTimer, PlaylistAutoLoader,
+    ChannelNotifier, PlayerRegistry(음성 이벤트 라우팅)
+  - `ui/` — EmbedFactory, 색상/이모지 테마, 포맷 헬퍼
+  - `cogs/` — 슬래시 명령 (재생/대기열/설정, 같은 음성 채널 사용자만 제어 가능)
+  - `bot.py` — 의존성 조립(합성 루트), `config.py` — 환경 변수 기반 설정
 
 ## 테스트
 
