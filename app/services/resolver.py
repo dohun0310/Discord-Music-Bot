@@ -29,7 +29,7 @@ DEFAULT_YTDL_OPTIONS: dict[str, Any] = {
     "no_warnings": True,
     "default_search": "auto",
     "source_address": "0.0.0.0",
-    "extractor_args": {"youtube": {"player_client": ["android_vr"]}},
+    "extractor_args": {"youtube": {"player_client": ["visionos"]}},
 }
 
 _REQUIRED_KEYS = ("url", "title", "webpage_url")
