@@ -6,10 +6,6 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    triggers {
-        pollSCM('* * * * *')
-    }
-
     parameters {
         string(name: 'IMAGE_PLATFORMS', defaultValue: 'linux/amd64,linux/arm64,linux/arm/v7', description: 'Target platforms for the multi-architecture image')
     }
