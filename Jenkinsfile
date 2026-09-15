@@ -15,6 +15,7 @@ pipeline {
         REGISTRY_URL = 'https://index.docker.io/v1/'
         REGISTRY_CREDENTIALS_ID='***'
         BUILDER_NAME = "discord-music-bot-builder-${BUILD_TAG}"
+        BUILDX_CONFIG = "${WORKSPACE}/.buildx"
         IMAGE_PLATFORMS = "${params.IMAGE_PLATFORMS ?: 'linux/amd64,linux/arm64,linux/arm/v7'}"
     }
 
