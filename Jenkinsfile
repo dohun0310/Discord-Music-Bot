@@ -15,6 +15,7 @@ pipeline {
         REGISTRY_URL = 'https://index.docker.io/v1/'
         REGISTRY_CREDENTIALS_ID='***'
         BUILDER_NAME = "discord-music-bot-builder-${BUILD_TAG}"
+        BUILDX_CONFIG = "${WORKSPACE}/.buildx"
         IMAGE_PLATFORMS = "${params.IMAGE_PLATFORMS ?: 'linux/amd64,linux/arm64,linux/arm/v7'}"
     }
 
@@ -23,6 +24,14 @@ pipeline {
             steps {
                 deleteDir()
                 checkout scm
+
+                script {
+                    def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: '')
+                        .replaceFirst(/^origin\//, '')
+
+                    env.CURRENT_BRANCH = branch
+                    env.PUBLISH_IMAGE = branch == 'main' ? 'true' : 'false'
+                }
             }
         }
 
@@ -30,15 +39,35 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+                    mkdir -p "${BUILDX_CONFIG}"
                     docker run --privileged --rm tonistiigi/binfmt --install all
-                    docker buildx create --name "${BUILDER_NAME}" --driver docker-container --bootstrap
+                    docker buildx create \
+                        --name "${BUILDER_NAME}" \
+                        --driver docker-container \
+                        --bootstrap
+                '''
+            }
+        }
+
+        stage('Build image') {
+            when {
+                environment name: 'PUBLISH_IMAGE', value: 'false'
+            }
+            steps {
+                sh '''
+                    set -eu
+                    docker buildx build \
+                        --builder "${BUILDER_NAME}" \
+                        --platform "${IMAGE_PLATFORMS}" \
+                        --tag "${IMAGE_NAME}:ci" \
+                        .
                 '''
             }
         }
 
         stage('Publish image') {
             when {
-                branch 'main'
+                environment name: 'PUBLISH_IMAGE', value: 'true'
             }
             steps {
                 script {
