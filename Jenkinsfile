@@ -39,8 +39,12 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+                    mkdir -p "${BUILDX_CONFIG}"
                     docker run --privileged --rm tonistiigi/binfmt --install all
-                    docker buildx create --name "${BUILDER_NAME}" --driver docker-container --bootstrap
+                    docker buildx create \
+                        --name "${BUILDER_NAME}" \
+                        --driver docker-container \
+                        --bootstrap
                 '''
             }
         }
