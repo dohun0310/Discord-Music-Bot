@@ -67,7 +67,7 @@ pipeline {
 
         stage('Publish image') {
             when {
-                branch 'main'
+                environment name: 'PUBLISH_IMAGE', value: 'true'
             }
             steps {
                 script {
