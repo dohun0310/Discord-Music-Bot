@@ -37,7 +37,9 @@ def build_bot(settings: Settings) -> commands.Bot:
     intents.voice_states = True
 
     # 슬래시 명령만 사용하므로 메시지 내용(특권 인텐트)과 접두사 명령이 필요 없다.
-    bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents)
+    bot = commands.Bot(
+        command_prefix=commands.when_mentioned, help_command=None, intents=intents,
+    )
 
     # ----- 의존성 조립 (DIP: 구체 구현을 여기서만 생성) -----
     executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ytdl")

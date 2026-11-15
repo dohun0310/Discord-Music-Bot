@@ -19,5 +19,6 @@ async def test_build_bot_requests_no_privileged_intents():
         assert bot.intents.members is False
         assert bot.intents.presences is False
         assert bot.intents.voice_states is True
+        assert bot.help_command is None
     finally:
         await bot.close()
