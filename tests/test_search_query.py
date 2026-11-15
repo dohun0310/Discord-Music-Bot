@@ -18,6 +18,7 @@ def test_non_url_query_is_search(query):
 @pytest.mark.parametrize("query", [
     "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     "http://youtu.be/dQw4w9WgXcQ",
+    "Https://www.youtube.com/watch?v=dQw4w9WgXcQ",  # 모바일 자동 대문자
 ])
 def test_url_query_is_passed_through(query):
     assert build_query(query) == (query, False)

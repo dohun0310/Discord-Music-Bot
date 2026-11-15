@@ -45,7 +45,7 @@ def build_query(query: str) -> tuple[str, bool]:
     URL이 아닌 입력에 검색 접두사를 붙이지 않으면, yt-dlp가 11자 문자열을
     YouTube 영상 ID로, PL 등으로 시작하는 문자열을 재생목록 ID로 해석한다.
     """
-    if query.startswith(("http://", "https://")):
+    if query.lower().startswith(("http://", "https://")):
         return query, False
     if _URL_WITHOUT_SCHEME.match(query):
         return "https://" + query, False
