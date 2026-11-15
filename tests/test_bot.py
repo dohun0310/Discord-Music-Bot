@@ -10,3 +10,14 @@ async def test_build_bot_assembles_cogs_via_setup_hook():
         assert names == {"PlaybackCog", "QueueCog", "SettingsCog"}
     finally:
         await bot.close()
+
+
+async def test_build_bot_requests_no_privileged_intents():
+    bot = build_bot(Settings(bot_token="토큰", log_level="INFO"))
+    try:
+        assert bot.intents.message_content is False
+        assert bot.intents.members is False
+        assert bot.intents.presences is False
+        assert bot.intents.voice_states is True
+    finally:
+        await bot.close()
