@@ -182,3 +182,21 @@ async def test_next_index_advances_by_entry_count():
     await run_all()
     assert [t.title for t in added] == ["a", "c", "d"]
     assert resolver.calls[1][1] == 4  # 1 + 응답 항목 3 (유효한 2곡이 아니라)
+
+
+async def test_unavailable_only_batch_keeps_loading():
+    resolver = _FakeResolver([
+        PlaylistBatch(tracks=[], entry_count=10),  # 배치 전체가 재생 불가
+        [_track("k")],
+    ])
+    loader = PlaylistAutoLoader(resolver=resolver, threshold=3)
+    loader.set("http://list", 1, "@r")
+    added, add_tracks, spawn, run_all = _harness(loader)
+
+    loader.maybe_load(0, add_tracks, spawn)
+    await run_all()
+    assert loader.active is True  # 플레이리스트 끝으로 오인하지 않음
+    loader.maybe_load(0, add_tracks, spawn)
+    await run_all()
+    assert resolver.calls[1][1] == 11
+    assert [t.title for t in added] == ["k"]

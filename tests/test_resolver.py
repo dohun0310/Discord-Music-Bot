@@ -45,6 +45,13 @@ def test_playlist_resolution_metadata():
     assert res.next_start_index == 1 + 2  # start(1) + 응답 항목 수
 
 
+def test_playlist_next_start_index_counts_unavailable_entries():
+    data = {"entries": [_entry(title="a"), None, _entry(title="c"), None, _entry(title="e")]}
+    res = build_resolution(data, query="http://list", requester="@r", is_search=False)
+    assert [t.title for t in res.tracks] == ["a", "c", "e"]
+    assert res.next_start_index == 6  # 재생 불가 2곡도 위치를 차지
+
+
 def test_missing_required_key_dropped():
     bad = _entry()
     del bad["url"]
@@ -61,6 +68,17 @@ def test_build_batch_returns_tracks():
     assert all(isinstance(t, Track) for t in batch.tracks)
     assert batch.tracks[0].requester == "@auto"
     assert batch.entry_count == 2
+
+
+def test_build_batch_counts_unavailable_entries():
+    batch = build_batch({"entries": [None, _entry(title="b"), None]}, requester="@r")
+    assert [t.title for t in batch.tracks] == ["b"]
+    assert batch.entry_count == 3
+
+
+def test_build_batch_without_entries_is_empty():
+    batch = build_batch({}, requester="@r")
+    assert batch.tracks == [] and batch.entry_count == 0
 
 
 def test_thumbnail_picks_highest_resolution():
