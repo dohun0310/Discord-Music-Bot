@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_YTDL_OPTIONS: dict[str, Any] = {
     "format": "bestaudio/best",
     "restrictfilenames": True,
-    "nocheckcertificate": True,
     "ignoreerrors": True,
     "logtostderr": False,
     "quiet": True,
