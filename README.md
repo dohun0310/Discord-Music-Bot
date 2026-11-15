@@ -75,10 +75,10 @@ pytest
 
 ## Docker 사용
 
-이 저장소에 있는 파일을 `Docker Hub`에 빌드해 두었습니다.
+`main` 브랜치에서 빌드한 이미지를 Docker Hub의 `dohun0310/discord-music-bot`에 발행합니다.
 ```bash
-docker push dohun0310/discord-music-bot
-docker run -e BOT_TOKEN='디스코드봇토큰' discord-music-bot
+docker pull dohun0310/discord-music-bot
+docker run -d --restart unless-stopped -e BOT_TOKEN='디스코드봇토큰' dohun0310/discord-music-bot
 ```
 
 ---
