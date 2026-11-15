@@ -51,6 +51,21 @@ pipeline {
             }
         }
 
+        stage('Test') {
+            steps {
+                sh '''
+                    set -eu
+                    git archive --format=tar HEAD | docker run --rm -i python:3.14-slim sh -ec '
+                        mkdir /src
+                        cd /src
+                        tar -xf -
+                        pip install --no-cache-dir --root-user-action=ignore -q -r requirements-dev.txt
+                        python -m pytest -q
+                    '
+                '''
+            }
+        }
+
         stage('Prepare builder') {
             steps {
                 sh '''
