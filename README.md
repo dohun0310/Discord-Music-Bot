@@ -55,18 +55,21 @@ pytest
 ## 설치 방법
 
 1. **Python 버전**: Python 3.10 이상 (Docker 이미지는 `python:3.14-slim` 사용)  
-2. **의존성 설치**:  
+2. **FFmpeg 설치**: 음원을 재생하려면 `ffmpeg`가 `PATH`에 있어야 합니다. (Docker 이미지에는 포함되어 있습니다.)
+3. **의존성 설치**:  
    ```bash
    pip install -r requirements.txt
    ```  
-3. **환경 변수 설정**:  
-   - `config.py`에서 사용하는 `BOT_TOKEN` 을 환경 변수로 설정해야 합니다.  
-   - (예: `export BOT_TOKEN='디스코드봇토큰'`)
+4. **환경 변수 설정**:  
+   - `BOT_TOKEN` (필수): 디스코드 봇 토큰 (예: `export BOT_TOKEN='디스코드봇토큰'`)
+   - `LOG_LEVEL` (선택): 로그 수준, 기본값 `INFO`
+   - 환경 변수는 `app/config.py`에서 읽습니다.
 
-4. **봇 실행**:  
+5. **봇 실행**:  
    ```bash
-   python main.py
+   python -m app
    ```
+   - `BOT_TOKEN`이 없거나 로그인에 실패하면 종료 코드 1로 종료합니다.
 
 ---
 
