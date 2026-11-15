@@ -58,16 +58,17 @@ class PlaylistAutoLoader:
         try:
             if url is None:
                 return
-            tracks = await self._resolver.load_playlist_batch(
+            batch = await self._resolver.load_playlist_batch(
                 url, self._next_index, self._requester or "자동 로드"
             )
             if generation != self._generation:
                 return  # 대기 중 set()/clear()로 무효화된 결과는 폐기
-            if not tracks:
+            if batch.entry_count == 0:
                 self.clear()  # 플레이리스트 끝
                 return
-            added = add_tracks(tracks)
-            self._next_index += added
+            added = add_tracks(batch.tracks)
+            # 재생 불가 항목도 플레이리스트 위치를 차지하므로 응답 항목 수만큼 전진한다.
+            self._next_index += batch.entry_count
             logger.info("[%s] 플레이리스트 배치 로드 %d곡", self._guild_name, added)
         except Exception as exc:  # noqa: BLE001 - 로딩 실패 시 자동 로드 포기
             logger.error("[%s] 배치 로드 실패 - %s", self._guild_name, exc, exc_info=True)

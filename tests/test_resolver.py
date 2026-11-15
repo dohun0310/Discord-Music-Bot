@@ -1,5 +1,6 @@
 from app.domain.models import Track
 from app.services.resolver import (
+    PlaylistBatch,
     PlaylistResolution,
     TrackResolution,
     YtDlpTrackResolver,
@@ -41,7 +42,7 @@ def test_playlist_resolution_metadata():
     assert isinstance(res, PlaylistResolution)
     assert res.title == "내 리스트"
     assert [t.title for t in res.tracks] == ["a", "b"]
-    assert res.next_start_index == 1 + 2  # start(1) + 로드된 수
+    assert res.next_start_index == 1 + 2  # start(1) + 응답 항목 수
 
 
 def test_missing_required_key_dropped():
@@ -54,10 +55,12 @@ def test_missing_required_key_dropped():
 
 def test_build_batch_returns_tracks():
     data = {"entries": [_entry(title="a"), _entry(title="b")]}
-    tracks = build_batch(data, requester="@auto")
-    assert [t.title for t in tracks] == ["a", "b"]
-    assert all(isinstance(t, Track) for t in tracks)
-    assert tracks[0].requester == "@auto"
+    batch = build_batch(data, requester="@auto")
+    assert isinstance(batch, PlaylistBatch)
+    assert [t.title for t in batch.tracks] == ["a", "b"]
+    assert all(isinstance(t, Track) for t in batch.tracks)
+    assert batch.tracks[0].requester == "@auto"
+    assert batch.entry_count == 2
 
 
 def test_thumbnail_picks_highest_resolution():

@@ -2,6 +2,7 @@ import asyncio
 
 from app.domain.models import Track
 from app.player.autoloader import PlaylistAutoLoader
+from app.services.resolver import PlaylistBatch
 
 
 def _track(title):
@@ -23,7 +24,9 @@ class _FakeResolver:
         item = self.batches.pop(0)
         if isinstance(item, Exception):
             raise item
-        return item
+        if isinstance(item, PlaylistBatch):
+            return item
+        return PlaylistBatch(tracks=item, entry_count=len(item))
 
 
 def _harness(loader):
@@ -121,7 +124,7 @@ class _GatedResolver:
     async def load_playlist_batch(self, url, start_index, requester):
         self.calls.append((url, start_index, requester))
         await self.gate.wait()
-        return self.tracks
+        return PlaylistBatch(tracks=self.tracks, entry_count=len(self.tracks))
 
 
 async def test_clear_during_inflight_load_discards_results():
@@ -164,17 +167,18 @@ async def test_set_during_inflight_load_discards_old_batch():
     assert loader.active is True  # 새 플레이리스트는 유지
 
 
-async def test_next_index_advances_by_add_tracks_return_value():
-    resolver = _FakeResolver([[_track("a"), _track("b"), _track("c")], [_track("d")]])
+async def test_next_index_advances_by_entry_count():
+    resolver = _FakeResolver([
+        PlaylistBatch(tracks=[_track("a"), _track("c")], entry_count=3),  # b는 재생 불가
+        [_track("d")],
+    ])
     loader = PlaylistAutoLoader(resolver=resolver, threshold=3)
     loader.set("http://list", 1, "@r")
-    _, _, spawn, run_all = _harness(loader)
+    added, add_tracks, spawn, run_all = _harness(loader)
 
-    def add_two_of_three(tracks):
-        return len(tracks) - 1  # 한 곡이 거부된 상황
-
-    loader.maybe_load(0, add_two_of_three, spawn)
+    loader.maybe_load(0, add_tracks, spawn)
     await run_all()
-    loader.maybe_load(0, add_two_of_three, spawn)
+    loader.maybe_load(0, add_tracks, spawn)
     await run_all()
-    assert resolver.calls[1][1] == 3  # 1 + 반환값 2 (len 3이 아니라)
+    assert [t.title for t in added] == ["a", "c", "d"]
+    assert resolver.calls[1][1] == 4  # 1 + 응답 항목 3 (유효한 2곡이 아니라)
