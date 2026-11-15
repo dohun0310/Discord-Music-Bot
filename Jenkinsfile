@@ -22,7 +22,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                checkout scm
 
                 script {
                     def scmVars = checkout scm
