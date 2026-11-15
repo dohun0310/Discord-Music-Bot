@@ -85,8 +85,11 @@ docker run -d --restart unless-stopped -e BOT_TOKEN='디스코드봇토큰' dohu
 
 ## CI/CD (Jenkins)
 
-- `Jenkinsfile`을 사용하여 Docker 이미지를 여러 플랫폼에 자동 빌드할 수 있습니다.  
-- 빌드 완료 시 Telegram 등으로 알림을 보낼 수 있으며, 빌드 테스트가 통과되지 않으면 자동으로 실패 처리가 됩니다.
+- `Test` 단계에서 `python:3.14-slim` 컨테이너로 `pytest`를 실행하며, 테스트가 실패하면 빌드가 실패합니다.
+- 테스트를 통과하면 `linux/amd64`, `linux/arm64`, `linux/arm/v7` 이미지를 빌드합니다.
+  - `main` 브랜치: 날짜 태그(`YYYY-MM-DD`)와 `latest` 태그로 Docker Hub에 발행합니다.
+  - 그 밖의 브랜치: 이미지를 빌드만 하고 발행하지 않습니다.
+- 빌드가 끝나면 결과를 Telegram으로 알립니다.
 
 ---
 
