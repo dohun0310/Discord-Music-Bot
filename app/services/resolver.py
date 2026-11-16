@@ -52,6 +52,14 @@ class PlaylistResolution:
     next_start_index: int
 
 
+@dataclass(frozen=True)
+class PlaylistBatch:
+    """플레이리스트 다음 배치. entry_count는 재생 불가 항목을 포함한 응답 항목 수."""
+
+    tracks: list[Track]
+    entry_count: int
+
+
 ResolveResult = Union[TrackResolution, PlaylistResolution]
 
 
@@ -109,7 +117,7 @@ def build_resolution(
         original_url = data.get("webpage_url") or data.get("original_url") or query
         return PlaylistResolution(
             title=title, original_url=original_url, tracks=valid,
-            next_start_index=1 + len(valid),
+            next_start_index=1 + len(data["entries"]),  # 재생 불가 항목도 위치를 차지
         )
     track = _entry_to_track(data, requester, resolved_at)
     return TrackResolution(track=track) if track else None
@@ -117,22 +125,20 @@ def build_resolution(
 
 def build_batch(
     data: dict[str, Any], requester: str, resolved_at: Optional[float] = None,
-) -> list[Track]:
-    """플레이리스트 다음 배치(dict)를 Track 리스트로 변환한다 (순수)."""
-    if "entries" not in data:
-        return []
-    return [
-        t for t in (
-            _entry_to_track(e, requester, resolved_at) for e in data["entries"]
-        ) if t
+) -> PlaylistBatch:
+    """플레이리스트 다음 배치(dict)를 PlaylistBatch로 변환한다 (순수)."""
+    entries = data.get("entries") or []
+    tracks = [
+        t for t in (_entry_to_track(e, requester, resolved_at) for e in entries) if t
     ]
+    return PlaylistBatch(tracks=tracks, entry_count=len(entries))
 
 
 class TrackResolver(Protocol):
     async def resolve(self, query: str, requester: str) -> Optional[ResolveResult]: ...
     async def load_playlist_batch(
         self, url: str, start_index: int, requester: str
-    ) -> list[Track]: ...
+    ) -> PlaylistBatch: ...
     async def refresh(self, track: Track) -> Optional[Track]: ...
 
 
@@ -171,11 +177,11 @@ class YtDlpTrackResolver:
 
     async def load_playlist_batch(
         self, url: str, start_index: int, requester: str
-    ) -> list[Track]:
+    ) -> PlaylistBatch:
         end = start_index + self._batch_size - 1
         data = await self._extract(url, f"{start_index}-{end}")
         if data is None:
-            return []
+            return PlaylistBatch(tracks=[], entry_count=0)
         return build_batch(data, requester, resolved_at=time.monotonic())
 
     async def refresh(self, track: Track) -> Optional[Track]:
