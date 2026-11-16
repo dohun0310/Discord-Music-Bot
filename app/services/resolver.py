@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -33,6 +34,22 @@ DEFAULT_YTDL_OPTIONS: dict[str, Any] = {
 }
 
 _REQUIRED_KEYS = ("url", "title", "webpage_url")
+
+# yt-dlp가 스킴 없는 입력을 URL로 보는 규칙과 같다 (예: youtube.com/watch?v=...).
+_URL_WITHOUT_SCHEME = re.compile(r"[^\s/]+\.[^\s/]+/")
+
+
+def build_query(query: str) -> tuple[str, bool]:
+    """사용자 입력을 yt-dlp 입력으로 바꾼다. 반환값은 (입력, 검색 여부).
+
+    URL이 아닌 입력에 검색 접두사를 붙이지 않으면, yt-dlp가 11자 문자열을
+    YouTube 영상 ID로, PL 등으로 시작하는 문자열을 재생목록 ID로 해석한다.
+    """
+    if query.lower().startswith(("http://", "https://")):
+        return query, False
+    if _URL_WITHOUT_SCHEME.match(query):
+        return "https://" + query, False
+    return "ytsearch:" + query, True
 
 
 @dataclass(frozen=True)
@@ -166,8 +183,8 @@ class YtDlpTrackResolver:
         )
 
     async def resolve(self, query: str, requester: str) -> Optional[ResolveResult]:
-        is_search = not query.startswith(("http://", "https://"))
-        data = await self._extract(query, f"1-{self._batch_size}")
+        target, is_search = build_query(query)
+        data = await self._extract(target, f"1-{self._batch_size}")
         if data is None:
             return None
         return build_resolution(
