@@ -35,47 +35,62 @@ pytest
    - 여러 곡을 순서대로 재생할 수 있도록 대기열을 관리합니다.  
    - `GuildPlayer` 클래스에서 대기열 로직과 재생 순서를 제어합니다.
 
-3. **명령어 예시**:  
-   - `/재생 [URL or 검색어]` : 유튜브 URL 혹은 검색어로 음악 재생  
-   - `/대기열` : 현재 대기열 목록 확인  
-   - `/스킵` : 현재 재생 중인 음악을 스킵하고 다음 음악으로 넘어감  
-   - `/정지` : 음악 정지 및 대기열 초기화
-   - `/현재곡` : 현재 재생 중인 음악을 확인하고 진행 상황 확인
+3. **명령어**:  
+   - `/재생 [제목 또는 URL]` : YouTube 검색어나 URL로 노래 또는 플레이리스트 재생  
+   - `/스킵` : 현재 곡을 건너뛰고 다음 곡 재생  
+   - `/정지` : 재생을 중지하고 대기열을 비운 뒤 음성 채널에서 퇴장  
+   - `/일시정지` : 재생 일시정지  
+   - `/재개` : 일시정지한 곡 다시 재생  
+   - `/현재곡` : 현재 곡 정보와 진행 상황 확인  
+   - `/대기열` : 대기열 목록 확인  
+   - `/삭제 [순번]` : 대기열에서 지정한 순번의 곡 제거  
+   - `/비우기` : 대기열 비우기  
+   - `/셔플` : 대기열 섞기  
+   - `/볼륨 [0-200]` : 볼륨 조절  
+   - `/반복` : 반복 모드 변경 (꺼짐 → 전체 반복 → 한 곡 반복)
+   - `/재생`은 음성 채널에 접속한 사용자가 사용할 수 있으며, 봇이 다른 음성 채널에서 재생 중이면 거절됩니다.
+   - `/재생`, `/현재곡`, `/대기열`을 제외한 명령어는 봇과 같은 음성 채널에 있는 사용자만 사용할 수 있습니다.
 
 ---
 
 ## 설치 방법
 
 1. **Python 버전**: Python 3.10 이상 (Docker 이미지는 `python:3.14-slim` 사용)  
-2. **의존성 설치**:  
+2. **FFmpeg 설치**: 음원을 재생하려면 `ffmpeg`가 `PATH`에 있어야 합니다. (Docker 이미지에는 포함되어 있습니다.)
+3. **의존성 설치**:  
    ```bash
    pip install -r requirements.txt
    ```  
-3. **환경 변수 설정**:  
-   - `config.py`에서 사용하는 `BOT_TOKEN` 을 환경 변수로 설정해야 합니다.  
-   - (예: `export BOT_TOKEN='디스코드봇토큰'`)
+4. **환경 변수 설정**:  
+   - `BOT_TOKEN` (필수): 디스코드 봇 토큰 (예: `export BOT_TOKEN='디스코드봇토큰'`)
+   - `LOG_LEVEL` (선택): 로그 수준, 기본값 `INFO`
+   - 환경 변수는 `app/config.py`에서 읽습니다.
 
-4. **봇 실행**:  
+5. **봇 실행**:  
    ```bash
-   python main.py
+   python -m app
    ```
+   - `BOT_TOKEN`이 없거나 로그인에 실패하면 종료 코드 1로 종료합니다.
 
 ---
 
 ## Docker 사용
 
-이 저장소에 있는 파일을 `Docker Hub`에 빌드해 두었습니다.
+`main` 브랜치에서 빌드한 이미지를 Docker Hub의 `dohun0310/discord-music-bot`에 발행합니다.
 ```bash
-docker push dohun0310/discord-music-bot
-docker run -e BOT_TOKEN='디스코드봇토큰' discord-music-bot
+docker pull dohun0310/discord-music-bot
+docker run -d --restart unless-stopped -e BOT_TOKEN='디스코드봇토큰' dohun0310/discord-music-bot
 ```
 
 ---
 
 ## CI/CD (Jenkins)
 
-- `Jenkinsfile`을 사용하여 Docker 이미지를 여러 플랫폼에 자동 빌드할 수 있습니다.  
-- 빌드 완료 시 Telegram 등으로 알림을 보낼 수 있으며, 빌드 테스트가 통과되지 않으면 자동으로 실패 처리가 됩니다.
+- `Test` 단계에서 `python:3.14-slim` 컨테이너로 `pytest`를 실행하며, 테스트가 실패하면 빌드가 실패합니다.
+- 테스트를 통과하면 `linux/amd64`, `linux/arm64`, `linux/arm/v7` 이미지를 빌드합니다.
+  - `main` 브랜치: 날짜 태그(`YYYY-MM-DD`)와 `latest` 태그로 Docker Hub에 발행합니다.
+  - 그 밖의 브랜치: 이미지를 빌드만 하고 발행하지 않습니다.
+- 빌드가 끝나면 결과를 Telegram으로 알립니다.
 
 ---
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -22,7 +23,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_YTDL_OPTIONS: dict[str, Any] = {
     "format": "bestaudio/best",
     "restrictfilenames": True,
-    "nocheckcertificate": True,
     "ignoreerrors": True,
     "logtostderr": False,
     "quiet": True,
@@ -33,6 +33,22 @@ DEFAULT_YTDL_OPTIONS: dict[str, Any] = {
 }
 
 _REQUIRED_KEYS = ("url", "title", "webpage_url")
+
+# yt-dlp가 스킴 없는 입력을 URL로 보는 규칙과 같다 (예: youtube.com/watch?v=...).
+_URL_WITHOUT_SCHEME = re.compile(r"[^\s/]+\.[^\s/]+/")
+
+
+def build_query(query: str) -> tuple[str, bool]:
+    """사용자 입력을 yt-dlp 입력으로 바꾼다. 반환값은 (입력, 검색 여부).
+
+    URL이 아닌 입력에 검색 접두사를 붙이지 않으면, yt-dlp가 11자 문자열을
+    YouTube 영상 ID로, PL 등으로 시작하는 문자열을 재생목록 ID로 해석한다.
+    """
+    if query.lower().startswith(("http://", "https://")):
+        return query, False
+    if _URL_WITHOUT_SCHEME.match(query):
+        return "https://" + query, False
+    return "ytsearch:" + query, True
 
 
 @dataclass(frozen=True)
@@ -50,6 +66,14 @@ class PlaylistResolution:
     original_url: str
     tracks: list[Track]
     next_start_index: int
+
+
+@dataclass(frozen=True)
+class PlaylistBatch:
+    """플레이리스트 다음 배치. entry_count는 재생 불가 항목을 포함한 응답 항목 수."""
+
+    tracks: list[Track]
+    entry_count: int
 
 
 ResolveResult = Union[TrackResolution, PlaylistResolution]
@@ -109,7 +133,7 @@ def build_resolution(
         original_url = data.get("webpage_url") or data.get("original_url") or query
         return PlaylistResolution(
             title=title, original_url=original_url, tracks=valid,
-            next_start_index=1 + len(valid),
+            next_start_index=1 + len(data["entries"]),  # 재생 불가 항목도 위치를 차지
         )
     track = _entry_to_track(data, requester, resolved_at)
     return TrackResolution(track=track) if track else None
@@ -117,22 +141,20 @@ def build_resolution(
 
 def build_batch(
     data: dict[str, Any], requester: str, resolved_at: Optional[float] = None,
-) -> list[Track]:
-    """플레이리스트 다음 배치(dict)를 Track 리스트로 변환한다 (순수)."""
-    if "entries" not in data:
-        return []
-    return [
-        t for t in (
-            _entry_to_track(e, requester, resolved_at) for e in data["entries"]
-        ) if t
+) -> PlaylistBatch:
+    """플레이리스트 다음 배치(dict)를 PlaylistBatch로 변환한다 (순수)."""
+    entries = data.get("entries") or []
+    tracks = [
+        t for t in (_entry_to_track(e, requester, resolved_at) for e in entries) if t
     ]
+    return PlaylistBatch(tracks=tracks, entry_count=len(entries))
 
 
 class TrackResolver(Protocol):
     async def resolve(self, query: str, requester: str) -> Optional[ResolveResult]: ...
     async def load_playlist_batch(
         self, url: str, start_index: int, requester: str
-    ) -> list[Track]: ...
+    ) -> PlaylistBatch: ...
     async def refresh(self, track: Track) -> Optional[Track]: ...
 
 
@@ -160,8 +182,8 @@ class YtDlpTrackResolver:
         )
 
     async def resolve(self, query: str, requester: str) -> Optional[ResolveResult]:
-        is_search = not query.startswith(("http://", "https://"))
-        data = await self._extract(query, f"1-{self._batch_size}")
+        target, is_search = build_query(query)
+        data = await self._extract(target, f"1-{self._batch_size}")
         if data is None:
             return None
         return build_resolution(
@@ -171,11 +193,11 @@ class YtDlpTrackResolver:
 
     async def load_playlist_batch(
         self, url: str, start_index: int, requester: str
-    ) -> list[Track]:
+    ) -> PlaylistBatch:
         end = start_index + self._batch_size - 1
         data = await self._extract(url, f"{start_index}-{end}")
         if data is None:
-            return []
+            return PlaylistBatch(tracks=[], entry_count=0)
         return build_batch(data, requester, resolved_at=time.monotonic())
 
     async def refresh(self, track: Track) -> Optional[Track]:

@@ -22,7 +22,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 deleteDir()
-                checkout scm
 
                 script {
                     def scmVars = checkout scm
@@ -48,6 +47,21 @@ pipeline {
 
                     env.BUILDER_NAME = "discord-music-bot-builder-${sanitizedBuildTag}"
                 }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                    set -eu
+                    git archive --format=tar HEAD | docker run --rm -i python:3.14-slim sh -ec '
+                        mkdir /src
+                        cd /src
+                        tar -xf -
+                        pip install --no-cache-dir --root-user-action=ignore -q -r requirements-dev.txt
+                        python -m pytest -q
+                    '
+                '''
             }
         }
 

@@ -6,6 +6,7 @@ import time
 from app.config import Settings
 from app.domain.models import RepeatMode, Track
 from app.player.guild_player import GuildPlayer
+from app.services.resolver import PlaylistBatch
 from app.ui.embeds import EmbedFactory
 
 
@@ -121,7 +122,7 @@ class _Resolver:
         raise AssertionError("테스트에서 resolve 호출 금지")
 
     async def load_playlist_batch(self, url, start_index, requester):
-        return []
+        return PlaylistBatch(tracks=[], entry_count=0)
 
     async def refresh(self, track):
         self.refreshed.append(track.title)
@@ -289,8 +290,8 @@ async def test_playlist_autoload_feeds_queue():
         async def load_playlist_batch(self, url, start_index, requester):
             self.batch_calls += 1
             if self.batch_calls > 1:
-                return []
-            return [_track("자동%d" % i) for i in range(3)]
+                return PlaylistBatch(tracks=[], entry_count=0)
+            return PlaylistBatch(tracks=[_track("자동%d" % i) for i in range(3)], entry_count=3)
 
     channel = _Channel()
     vc = _FakeVoiceClient(_VoiceChannel(humans=1))
